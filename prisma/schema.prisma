@@ -144,3 +144,35 @@ model ChatMessage {
   @@index([sessionId])
   @@map("messages")
 }
+
+// ─── Phase 2: AI Core tables ───────────────────────────────────────────
+
+/// Encrypted AI provider credentials (API keys). Stored as AES-256-GCM
+/// encrypted JSON ({ iv, ciphertext, tag }). The raw key is never sent to
+/// the client — only a masked view is exposed.
+model AiCredential {
+  id        String   @id @default(cuid())
+  provider  String   @unique // ProviderId
+  encrypted String   // JSON: { iv, ciphertext, tag } (base64)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_credentials")
+}
+
+/// AI usage tracking — per-request token usage records for analytics and
+/// rate limiting. Written by the /api/v1/ai/chat endpoint.
+model AiUsageRecord {
+  id             String   @id @default(cuid())
+  provider       String
+  model          String
+  inputTokens    Int
+  outputTokens   Int
+  totalTokens    Int
+  sessionId      String?
+  createdAt      DateTime @default(now())
+
+  @@index([provider])
+  @@index([createdAt])
+  @@map("ai_usage_records")
+}

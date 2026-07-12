@@ -1,12 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Smartphone, Bot, Send, Sparkles } from "lucide-react";
+import { Smartphone, Bot, Send, Sparkles, Square } from "lucide-react";
 import { ComingSoon } from "@/components/common/coming-soon";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useChatStore } from "@/stores/chat-store";
+import { useAIStore } from "@/stores/ai-store";
+import { toast } from "sonner";
 
 interface RightPanelProps {
   tab: "preview" | "chat";
@@ -28,7 +31,6 @@ export function RightPanel({ tab, onTabChange }: RightPanelProps) {
         </TabButton>
         <TabButton active={tab === "chat"} onClick={() => onTabChange("chat")}>
           <Bot className="h-3.5 w-3.5" /> AI Chat
-          <Badge variant="outline" className="ml-1 text-[9px]">Soon</Badge>
         </TabButton>
       </div>
 
@@ -96,34 +98,85 @@ function PreviewPlaceholder() {
 
 function ChatPlaceholder() {
   const [value, setValue] = React.useState("");
+  const { messages, streaming, send, stop, clear } = useChatStore();
+  const ai = useAIStore();
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = () => {
+    const content = value.trim();
+    if (!content || streaming) return;
+    if (!ai.model) {
+      toast.error("Select a model in AI Settings first");
+      return;
+    }
+    send(content);
+    setValue("");
+  };
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1">
-        <ComingSoon
-          icon={Bot}
-          title="AI Coding Agent"
-          description="A context-aware agent that edits files, explains Flutter concepts, and reviews your code. Arrives in Phase 2."
-          badge="Phase 2"
-        />
+    <div className="flex h-full flex-col bg-background">
+      {/* Messages */}
+      <div ref={scrollRef} className="ff-scroll min-h-0 flex-1 overflow-y-auto p-3">
+        {messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Bot className="h-5 w-5" />
+            </div>
+            <p className="text-xs text-muted-foreground">Ask about your Flutter code…</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {messages.map((m) => (
+              <div key={m.id} className={cn("flex gap-2", m.role === "user" && "flex-row-reverse")}>
+                <div className={cn("max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs", m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+                  <div className="whitespace-pre-wrap break-words">{m.content || (streaming && m.role === "assistant" ? "…" : "")}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="border-t border-border p-3">
-        <div className="flex items-center gap-2">
-          <Input
+
+      {/* Input */}
+      <div className="border-t border-border p-2.5">
+        <div className="flex items-end gap-1.5 rounded-md border border-border bg-muted/30 p-1 pl-2.5">
+          <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="Ask the agent anything…"
-            className="h-9"
             onKeyDown={(e) => {
-              if (e.key === "Enter") setValue("");
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
             }}
+            placeholder="Ask the AI…"
+            className="flex-1 bg-transparent py-1 text-xs outline-none placeholder:text-muted-foreground"
+            disabled={streaming}
           />
-          <Button size="icon" className="h-9 w-9 shrink-0">
-            <Send className="h-4 w-4" />
-          </Button>
+          {streaming ? (
+            <Button size="icon" variant="destructive" className="h-6 w-6 shrink-0" onClick={stop}>
+              <Square className="h-3 w-3" />
+            </Button>
+          ) : (
+            <Button size="icon" className="h-6 w-6 shrink-0" onClick={handleSend} disabled={!value.trim()}>
+              <Send className="h-3 w-3" />
+            </Button>
+          )}
         </div>
-        <p className="mt-1.5 text-[10px] text-muted-foreground">
-          The AI agent connects to OpenRouter & Ollama in Phase 2.
-        </p>
+        <div className="mt-1 flex items-center justify-between">
+          {messages.length > 0 && (
+            <button onClick={clear} className="text-[10px] text-muted-foreground hover:text-foreground">
+              Clear
+            </button>
+          )}
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {ai.provider} · {streaming ? "Streaming…" : "Ready"}
+          </span>
+        </div>
       </div>
     </div>
   );

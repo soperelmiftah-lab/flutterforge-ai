@@ -6,6 +6,7 @@ import {
   LayoutTemplate,
   History,
   Settings,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,7 +40,12 @@ export const appNavItems: NavItem[] = [
     href: "/chat",
     icon: MessageSquare,
     description: "Conversational AI assistant",
-    badge: "Soon",
+  },
+  {
+    title: "AI Settings",
+    href: "/ai-settings",
+    icon: Bot,
+    description: "Configure AI providers & models",
   },
   {
     title: "Projects",
