@@ -13,3 +13,8 @@ export { useProviderStore } from "./provider-store";
 export { useModelStore } from "./model-store";
 export { useChatStore } from "./chat-store";
 export { useTokenStore } from "./token-store";
+// Phase 3 — Workspace Intelligence stores
+export { useWorkspaceIndexStore } from "./workspace-index-store";
+export { useSearchStore } from "./search-store";
+export { useDependencyStore } from "./dependency-store";
+export { useContextStore } from "./context-store";
