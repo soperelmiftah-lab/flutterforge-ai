@@ -136,15 +136,16 @@ export function assembleContext(
     }
     if (totalTokens + ranked_file.tokenEstimate > tokenBudget) {
       // Pinned + current files are never trimmed.
-      const file = ranked_file;
-      const isProtected = file.reasons.includes("pinned") || file.reasons.includes("current file");
+      const isProtected =
+        ranked_file.reasons.includes("pinned") ||
+        ranked_file.reasons.includes("current file");
       if (!isProtected) {
-        trimmed.push(file.path);
+        trimmed.push(ranked_file.path);
         continue;
       }
     }
-    finalFiles.push(file);
-    totalTokens += file.tokenEstimate;
+    finalFiles.push(ranked_file);
+    totalTokens += ranked_file.tokenEstimate;
   }
 
   return {

@@ -31,7 +31,20 @@ function scoreMatch(query: string, target: string): number {
   if (t === q) return 1;
   if (t.startsWith(q)) return 0.9;
   if (t.includes(q)) return 0.75;
-  // Camel-case / snake-case token matching.
+  // Reverse: query includes target (e.g. query "HomeScreen widget" vs target "HomeScreen").
+  if (q.includes(t)) return 0.7;
+  // Multi-word query: match each query token against the target.
+  const queryTokens = q.split(/[\s_/.-]+/).filter(Boolean);
+  if (queryTokens.length > 1) {
+    let best = 0;
+    for (const qt of queryTokens) {
+      if (t === qt) best = Math.max(best, 0.85);
+      else if (t.startsWith(qt)) best = Math.max(best, 0.7);
+      else if (t.includes(qt)) best = Math.max(best, 0.55);
+    }
+    if (best > 0) return best;
+  }
+  // Camel-case / snake-case token matching on the target.
   const tokens = t.split(/[\s_/.-]+/).filter(Boolean);
   for (const tok of tokens) {
     if (tok.startsWith(q)) return 0.6;
