@@ -25,3 +25,10 @@ export { useApprovalStore } from "./approval-store";
 export { useHistoryStore } from "./history-store";
 export { useQueueStore } from "./queue-store";
 export { useTelemetryStore } from "./telemetry-store";
+// Phase 5 — Planner OS stores
+export { usePlannerStore } from "./planner-store";
+export { useAgentStore } from "./agent-store";
+export { useWorkflowStore } from "./workflow-store";
+export { useTimelineStore } from "./timeline-store";
+export { useSessionStore } from "./session-store";
+export { usePlannerMetricsStore } from "./metrics-store";
