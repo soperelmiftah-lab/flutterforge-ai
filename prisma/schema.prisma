@@ -1,0 +1,146 @@
+// FlutterForge AI — Prisma schema
+//
+// Phase 1 uses SQLite (file-based, zero-config) so the foundation runs without
+// external infrastructure. The schema is designed to migrate cleanly to
+// PostgreSQL: every field uses portable types, relations are explicit, and
+// enums are modeled as strings to stay provider-agnostic until we switch.
+//
+// Domain tables (as specified in the project brief):
+//   users · projects · project_files · workspaces · settings · chat_sessions · messages
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A FlutterForge user account. Auth (JWT) wired in a future phase.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  plan      String   @default("free") // free | pro | team
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  Project[]
+  settings  Settings?
+  sessions  ChatSession[]
+
+  @@map("users")
+}
+
+/// A Flutter project owned by a user.
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  framework   String   @default("Flutter 3.22")
+  status      String   @default("draft") // draft | active | building | archived
+  favorite    Boolean  @default(false)
+  color       String   @default("emerald")
+  filesCount  Int      @default(0)
+  collaborators Int    @default(1)
+  ownerId     String
+
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  files       ProjectFile[]
+  workspace   Workspace?
+
+  lastOpenedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+/// A file or folder node inside a project's virtual file tree.
+/// `path` is the full path (e.g. "lib/main.dart"); `parentPath` enables
+/// hierarchy reconstruction without recursive joins.
+model ProjectFile {
+  id         String   @id @default(cuid())
+  projectId  String
+  name       String
+  path       String
+  type       String   // file | folder
+  language   String?
+  content    String?
+  parentPath String?
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([projectId, path])
+  @@index([projectId])
+  @@map("project_files")
+}
+
+/// Workspace session state for a project (open tabs, layout, active file).
+/// Scoped 1:1 to a project in phase 1; will support multiple layouts later.
+model Workspace {
+  id           String   @id @default(cuid())
+  projectId    String   @unique
+  openTabs     String   @default("[]") // JSON array of tab descriptors
+  activeTabId  String?
+  layout       String   @default("{}") // JSON panel sizes/state
+  updatedAt    DateTime @updatedAt
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("workspaces")
+}
+
+/// Per-user application settings (mirrors the client SettingsStore).
+model Settings {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  theme        String  @default("dark") // light | dark | system
+  language     String  @default("en")
+  fontSize     Int     @default(14)
+  editorTheme  String  @default("forge-dark")
+  autoSave     Boolean @default(true)
+  tabSize      Int     @default(2)
+  wordWrap     Boolean @default(true)
+  minimap      Boolean @default(true)
+  lineNumbers  Boolean @default(true)
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+/// An AI chat conversation belonging to a user.
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("New chat")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+/// A single message in a chat session.
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // user | assistant | system
+  content   String
+  createdAt DateTime @default(now())
+
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("messages")
+}
