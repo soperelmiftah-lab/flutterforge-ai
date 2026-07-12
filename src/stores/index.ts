@@ -18,3 +18,10 @@ export { useWorkspaceIndexStore } from "./workspace-index-store";
 export { useSearchStore } from "./search-store";
 export { useDependencyStore } from "./dependency-store";
 export { useContextStore } from "./context-store";
+// Phase 4 — Execution Engine stores
+export { useExecutionStore } from "./execution-store";
+export { useToolStore } from "./tool-store";
+export { useApprovalStore } from "./approval-store";
+export { useHistoryStore } from "./history-store";
+export { useQueueStore } from "./queue-store";
+export { useTelemetryStore } from "./telemetry-store";

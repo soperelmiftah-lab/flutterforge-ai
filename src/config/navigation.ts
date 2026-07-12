@@ -8,6 +8,7 @@ import {
   Settings,
   Bot,
   Boxes,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,6 +42,12 @@ export const appNavItems: NavItem[] = [
     href: "/inspector",
     icon: Boxes,
     description: "Project intelligence & code analysis",
+  },
+  {
+    title: "Execution",
+    href: "/execution",
+    icon: Cpu,
+    description: "Agent runtime & tool execution",
   },
   {
     title: "AI Chat",
