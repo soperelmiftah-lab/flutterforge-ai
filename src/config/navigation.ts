@@ -7,6 +7,7 @@ import {
   History,
   Settings,
   Bot,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,12 @@ export const appNavItems: NavItem[] = [
     href: "/workspace",
     icon: Code2,
     description: "Editor, explorer & preview",
+  },
+  {
+    title: "Inspector",
+    href: "/inspector",
+    icon: Boxes,
+    description: "Project intelligence & code analysis",
   },
   {
     title: "AI Chat",

@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { AppStatusbar } from "@/components/layout/app-statusbar";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { useProjectStore, useEditorStore, useWorkspaceStore } from "@/stores";
 
 /**
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppStatusbar />
       </div>
       <CommandPalette />
+      <KeyboardShortcuts />
     </div>
   );
 }

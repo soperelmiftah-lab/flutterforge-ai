@@ -13,8 +13,17 @@ import {
   Search,
   Plus,
   MoreHorizontal,
+  Pin,
+  PinOff,
+  Copy,
+  Star,
+  Trash2,
+  FilePlus,
+  FolderPlus,
+  Scissors,
 } from "lucide-react";
 import { useEditorStore } from "@/stores";
+import { useContextStore } from "@/stores/context-store";
 import type { ProjectFileNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -25,6 +34,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { toast } from "sonner";
 
 /** Pick icon color based on file extension. */
 function fileIconClass(name: string) {
@@ -85,19 +102,86 @@ function TreeNode({ node, depth }: TreeNodeProps) {
   }
 
   return (
-    <button
-      onClick={() => openFile(node.id)}
-      className={cn(
-        "group flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[13px] transition-colors",
-        isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-      )}
-      style={{ paddingLeft: depth * 12 + 22 }}
-    >
-      <FileIcon name={node.name} className={cn("h-3.5 w-3.5 shrink-0", fileIconClass(node.name))} />
-      <span className="truncate">{node.name}</span>
-    </button>
+    <FileContextMenu node={node} isActive={isActive} onOpen={() => openFile(node.id)}>
+      <button
+        onClick={() => openFile(node.id)}
+        className={cn(
+          "group flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[13px] transition-colors",
+          isActive
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        )}
+        style={{ paddingLeft: depth * 12 + 22 }}
+      >
+        <FileIcon name={node.name} className={cn("h-3.5 w-3.5 shrink-0", fileIconClass(node.name))} />
+        <span className="truncate">{node.name}</span>
+      </button>
+    </FileContextMenu>
+  );
+}
+
+/** Context menu wrapper for file nodes (right-click). */
+function FileContextMenu({
+  node,
+  isActive,
+  onOpen,
+  children,
+}: {
+  node: ProjectFileNode;
+  isActive: boolean;
+  onOpen: () => void;
+  children: React.ReactNode;
+}) {
+  const { pinnedFiles, togglePin } = useContextStore();
+  const isPinned = pinnedFiles.includes(node.path);
+  void isActive;
+
+  const copyPath = () => {
+    navigator.clipboard.writeText(node.path);
+    toast.success("Path copied to clipboard");
+  };
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={onOpen}>
+          <FileCode2 className="mr-2 h-3.5 w-3.5" /> Open
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => { togglePin(node.path); toast.success(isPinned ? "Unpinned" : "Pinned"); }}>
+          {isPinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
+          {isPinned ? "Unpin" : "Pin"} file
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => toast.info("Favorite arrives in Phase 4")}>
+          <Star className="mr-2 h-3.5 w-3.5" /> Favorite
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={copyPath}>
+          <Copy className="mr-2 h-3.5 w-3.5" /> Copy path
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => toast.info("Reveal in explorer arrives in Phase 4")}>
+          <Search className="mr-2 h-3.5 w-3.5" /> Reveal
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => toast.info("New file arrives in Phase 4")}>
+          <FilePlus className="mr-2 h-3.5 w-3.5" /> New file
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => toast.info("New folder arrives in Phase 4")}>
+          <FolderPlus className="mr-2 h-3.5 w-3.5" /> New folder
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => toast.info("Rename arrives in Phase 4")}>
+          <Scissors className="mr-2 h-3.5 w-3.5" /> Rename
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => toast.info("Duplicate arrives in Phase 4")}>
+          <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
+        </ContextMenuItem>
+        <ContextMenuItem className="text-destructive focus:text-destructive" onClick={() => toast.info("Delete arrives in Phase 4")}>
+          <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
