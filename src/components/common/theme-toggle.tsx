@@ -18,13 +18,16 @@ interface ThemeToggleProps {
 
 /**
  * Theme toggle with explicit Light / Dark / System options. Drives next-themes
- * which toggles the `dark` class on <html>. Also syncs the settings store so
- * preferences persist across sessions.
+ * which toggles the `dark` class on <html>.
+ *
+ * IMPORTANT: the trigger always renders BOTH the Sun and Moon icons (one
+ * visible, one hidden via CSS). Rendering different numbers of children
+ * before/after mount changes the React tree shape, which makes Radix's useId
+ * generate mismatched IDs between server and client → hydration error.
+ * Keeping the tree stable avoids that entirely.
  */
 export function ThemeToggle({ className }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
 
   return (
     <DropdownMenu>
@@ -32,17 +35,13 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         <Button
           variant="ghost"
           size="icon"
-          className={cn("h-9 w-9", className)}
+          className={cn("relative h-9 w-9", className)}
           aria-label="Toggle theme"
+          suppressHydrationWarning
         >
-          {!mounted ? (
-            <Sun className="h-[1.1rem] w-[1.1rem]" />
-          ) : (
-            <>
-              <Sun className="h-[1.1rem] w-[1.1rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.1rem] w-[1.1rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            </>
-          )}
+          {/* Both icons always present — CSS toggles visibility via .dark */}
+          <Sun className="h-[1.1rem] w-[1.1rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-[1.1rem] w-[1.1rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[9rem]">
