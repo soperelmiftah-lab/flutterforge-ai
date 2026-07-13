@@ -12,6 +12,7 @@ import {
   Brain,
   Wand2,
   Eye,
+  ScanEye,
   type LucideIcon,
 } from "lucide-react";
 
@@ -69,6 +70,12 @@ export const appNavItems: NavItem[] = [
     href: "/visual",
     icon: Eye,
     description: "Device bridge, screenshots & visual inspection",
+  },
+  {
+    title: "Vision AI",
+    href: "/vision-ai",
+    icon: ScanEye,
+    description: "UI analysis, issue detection & recommendations",
   },
   {
     title: "AI Chat",
