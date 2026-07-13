@@ -10,6 +10,7 @@ import {
   Boxes,
   Cpu,
   Brain,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,12 @@ export const appNavItems: NavItem[] = [
     href: "/planner",
     icon: Brain,
     description: "Agent OS: planner, orchestrator & registry",
+  },
+  {
+    title: "Tool Intelligence",
+    href: "/tool-intelligence",
+    icon: Wand2,
+    description: "Tool selection, chaining & optimization",
   },
   {
     title: "AI Chat",

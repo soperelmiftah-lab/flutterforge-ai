@@ -32,3 +32,6 @@ export { useWorkflowStore } from "./workflow-store";
 export { useTimelineStore } from "./timeline-store";
 export { useSessionStore } from "./session-store";
 export { usePlannerMetricsStore } from "./metrics-store";
+// Phase 6 — Tool Intelligence stores
+export { useToolIntelligenceStore } from "./tool-intelligence-store";
+export { useTIMetricsStore } from "./ti-metrics-store";
