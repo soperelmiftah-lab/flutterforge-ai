@@ -78,6 +78,12 @@ export const appNavItems: NavItem[] = [
     description: "UI analysis, issue detection & recommendations",
   },
   {
+    title: "Autonomous",
+    href: "/autonomous",
+    icon: Bot,
+    description: "Autonomous engineering & repair pipeline",
+  },
+  {
     title: "AI Chat",
     href: "/chat",
     icon: MessageSquare,
