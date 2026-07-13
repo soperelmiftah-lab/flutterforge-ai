@@ -11,6 +11,7 @@ import {
   Cpu,
   Brain,
   Wand2,
+  Eye,
   type LucideIcon,
 } from "lucide-react";
 
@@ -62,6 +63,12 @@ export const appNavItems: NavItem[] = [
     href: "/tool-intelligence",
     icon: Wand2,
     description: "Tool selection, chaining & optimization",
+  },
+  {
+    title: "Visual Runtime",
+    href: "/visual",
+    icon: Eye,
+    description: "Device bridge, screenshots & visual inspection",
   },
   {
     title: "AI Chat",
