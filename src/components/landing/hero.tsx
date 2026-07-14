@@ -41,7 +41,7 @@ export function LandingHero() {
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" className="h-11 px-6">
-              <Link href="/auth/register">
+              <Link href="/register">
                 Start building free <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
             </Button>

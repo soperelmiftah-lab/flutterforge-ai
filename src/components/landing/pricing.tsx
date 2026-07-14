@@ -16,7 +16,7 @@ const tiers = [
       "Local-first storage",
     ],
     cta: "Start free",
-    href: "/auth/register",
+    href: "/register",
     highlighted: false,
   },
   {
@@ -32,7 +32,7 @@ const tiers = [
       "Cloud sync & history",
     ],
     cta: "Join the waitlist",
-    href: "/auth/register",
+    href: "/register",
     highlighted: true,
   },
   {
@@ -48,7 +48,7 @@ const tiers = [
       "Priority support",
     ],
     cta: "Contact us",
-    href: "/auth/register",
+    href: "/register",
     highlighted: false,
   },
 ];

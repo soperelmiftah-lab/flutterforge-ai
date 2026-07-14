@@ -47,10 +47,10 @@ export function LandingNavbar() {
           </Button>
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
-            <Link href="/auth/login">Sign in</Link>
+            <Link href="/login">Sign in</Link>
           </Button>
           <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href="/auth/register">Get started</Link>
+            <Link href="/register">Get started</Link>
           </Button>
         </div>
 
@@ -88,10 +88,10 @@ export function LandingNavbar() {
           ))}
           <div className="flex flex-col gap-2 pt-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/auth/login">Sign in</Link>
+              <Link href="/login">Sign in</Link>
             </Button>
             <Button asChild size="sm">
-              <Link href="/auth/register">Get started</Link>
+              <Link href="/register">Get started</Link>
             </Button>
           </div>
         </div>
