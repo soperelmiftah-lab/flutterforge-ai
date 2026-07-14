@@ -251,7 +251,7 @@ function PreviewPanel() {
           <SelectTrigger className="w-64"><SelectValue placeholder="Select device…" /></SelectTrigger>
           <SelectContent>
             {connectedDevices.map((d) => (
-              <SelectItem key={d.id} value={d.id}>{d.name} ({d.platform ?? d.connection})</SelectItem>
+              <SelectItem key={d.id} value={d.id}>{d.name} ({d.connection})</SelectItem>
             ))}
           </SelectContent>
         </Select>
