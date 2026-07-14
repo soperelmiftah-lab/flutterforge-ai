@@ -1,0 +1,2 @@
+import { NextRequest, NextResponse } from "next/server";
+export async function POST(req: NextRequest) { const b = await req.json().catch(() => ({})); return NextResponse.json({ data: { id: "proj_" + Date.now(), name: b.name ?? "New Project", path: "/projects/" + (b.name ?? "new"), flutterVersion: "3.22.0", dartVersion: "3.4.0", platforms: [], lastOpenedAt: new Date().toISOString(), createdAt: new Date().toISOString(), isOpen: true } }); }

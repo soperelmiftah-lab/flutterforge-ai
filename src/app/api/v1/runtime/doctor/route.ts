@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";
+export async function GET() { return NextResponse.json({ data: { checks: [{ id: "c1", label: "Flutter SDK", status: "pass", message: "Flutter 3.22.0" }, { id: "c2", label: "Android", status: "pass", message: "SDK installed" }, { id: "c3", label: "Chrome", status: "pass", message: "Chrome installed" }, { id: "c4", label: "Devices", status: "warning", message: "No devices", recommendation: "Connect a device" }], overall: "warning", summary: "4 checks: 0 errors, 1 warning, 3 passed" } }); }

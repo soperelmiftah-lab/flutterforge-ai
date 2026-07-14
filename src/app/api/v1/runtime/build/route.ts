@@ -1,0 +1,2 @@
+import { NextRequest, NextResponse } from "next/server";
+export async function POST(req: NextRequest) { return NextResponse.json({ data: { id: "build_" + Date.now(), config: { target: "apk", mode: "debug", args: [] }, status: "success", progress: 100, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), durationMs: 1000, artifactPath: "/build/app.apk", logs: ["Building APK...", "Success!"] } }); }

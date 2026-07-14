@@ -14,6 +14,8 @@ import {
   Eye,
   ScanEye,
   Cloud,
+  Bird,
+  Terminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +67,18 @@ export const appNavItems: NavItem[] = [
     href: "/tool-intelligence",
     icon: Wand2,
     description: "Tool selection, chaining & optimization",
+  },
+  {
+    title: "Flutter Platform",
+    href: "/flutter-platform",
+    icon: Bird,
+    description: "Flutter domain intelligence & specialists",
+  },
+  {
+    title: "Runtime",
+    href: "/runtime",
+    icon: Terminal,
+    description: "Flutter SDK, builds, devices & runtime",
   },
   {
     title: "Visual Runtime",

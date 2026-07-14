@@ -1,0 +1,2 @@
+import { NextRequest, NextResponse } from "next/server";
+export async function POST(req: NextRequest) { return NextResponse.json({ data: { id: "run_" + Date.now(), projectId: "proj_demo", config: { deviceId: "chrome-1", args: [], environment: {} }, status: "running", deviceId: "chrome-1", startedAt: new Date().toISOString(), pid: 12345, logs: ["flutter run -d chrome-1", "App running"], hotReloadCount: 0, hotRestartCount: 0 } }); }

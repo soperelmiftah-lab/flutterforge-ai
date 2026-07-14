@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";
+export async function GET() { return NextResponse.json({ data: [{ id: "l1", level: "info", source: "flutter", message: "Flutter 3.22.0 starting", timestamp: new Date().toISOString() }, { id: "l2", level: "warning", source: "flutter", message: "setState during build", timestamp: new Date().toISOString() }], stats: { debug: 0, info: 1, warning: 1, error: 0, fatal: 0 } }); }
