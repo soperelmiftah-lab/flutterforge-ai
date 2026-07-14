@@ -111,3 +111,58 @@ Stage Summary:
   - GET /flutter/templates → 5 templates with real Dart code
   - GET /flutter/packages → 25 popular Flutter packages
   - UI: Generator tab shows AI-generated code with copy + save buttons; Templates tab shows 5 templates with Scaffold; Review tab shows 4 AI findings with scores; Build Readiness shows 7/7 pass.
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 8 (Runtime Platform) — make it "working" status (real in-memory runtime state).
+
+Work Log:
+- Created `src/features/flutter-runtime/state/index.ts` — a shared in-memory runtime state that persists across API calls via globalThis. Holds device registry, emulator registry, run sessions, build jobs, logs (rolling 500), history (rolling 200), processes, and metrics.
+- Real stateful operations:
+  - Run sessions: startSession() creates a session with PID, logs accumulate, status transitions starting → running, hot reload/restart actually increment counters
+  - Build jobs: queueBuild() + runBuild() — progress through 7 steps (resolving deps, compiling, packing, gradle, etc.) with real progress percentages and artifact paths
+  - Hot reload/restart: actually update the session counter and add log entries
+  - Device registry: attach/detach devices, start/stop emulators (adds/removes from booted devices)
+  - Logs: every operation emits log entries with level + source + timestamp + PID
+  - History: every operation (run/build/analyze/test/pub/hotreload/hotrestart) is recorded
+  - Metrics: computed from actual history (run count, build count, avg build time, hot reload count, etc.)
+  - Doctor: 7 checks derived from actual environment + device state
+  - Analyze: recursively scans VFS for Dart files, detects prefer_const + avoid_print + unused_import
+  - Test: simulated test run with pass/fail/skip/coverage
+  - Pub: 6 commands (get/upgrade/downgrade/outdated/deps/cache-repair)
+  - Processes: tracks running Flutter processes with CPU/memory
+- Updated 16 API routes to use the real runtime state (sdk, environment, doctor, devices, emulators, build, run, hotreload, hotrestart, logs, metrics, analyze, test, pub, processes, history)
+- Added 7 new API routes: stop, emulator/start, emulator/stop, device/attach, device/detach, processes/kill, sessions
+- Created `src/stores/runtime-store.ts` — Zustand store with full runtime state + all actions
+- Updated `src/app/(app)/runtime/page.tsx` with 13 tabs:
+  - Dashboard: real metrics (SDK version, device count, run/build counts, active session)
+  - Run Center: device selector, Run/Stop buttons, active session with Hot Reload + Hot Restart, all sessions list, live session logs
+  - Build Center: target/mode selectors, Build button, build job list with logs + artifact paths
+  - Devices: real device registry with attach/detach
+  - Emulators: start/stop emulators (adds/removes booted devices)
+  - Analyze: runs flutter analyze against VFS Dart files
+  - Test: unit/widget/integration/golden test runner
+  - Pub: 6 pub commands
+  - Flutter Doctor: 7 real checks
+  - Log Viewer: live log buffer with level colors + stats (polls every 3s)
+  - Processes: running process list with kill button
+  - History: all runtime operations
+  - Metrics: 10 real metrics computed from history
+- Fixed state persistence: used globalThis to store the singleton (class fields were being reset by Next.js dev module re-evaluations).
+
+Stage Summary:
+- Phase 8 (Runtime Platform) is now "Working" — no longer mock.
+- 1 new state module + 7 new API routes + 1 new store + complete UI overhaul.
+- All runtime operations are stateful: sessions persist, logs accumulate, builds progress through steps, hot reload updates counters, metrics computed from real history.
+- The analyze endpoint scans the real VFS (recursive) for Dart files and detects real lint issues.
+- Verified end-to-end with curl + Agent Browser:
+  - Run session created with PID + 8 log entries
+  - Hot reload → "🔥 Hot reload #1 (256ms)" in session logs
+  - Build APK → 7-step progression, "✓ Built apk (2.6s)", artifact at /build/app/outputs/apk/debug/app-debug.apk
+  - Emulator start/stop → device registry updates
+  - Analyze → detected avoid_print + prefer_const in VFS files
+  - Metrics → runs: 1, builds: 1, hotReloads: 1, avgBuildMs: 2607
+  - History → 3 entries (build 2607ms, hotreload 256ms, run 200ms)
+  - Logs → 8+ entries with proper levels + sources + timestamps
+  - UI: 13 tabs all functional, Run Center shows active session with live logs + hot reload, Build Center shows build job with 7-step log, Log Viewer shows accumulated logs with stats, Metrics shows real aggregated data.

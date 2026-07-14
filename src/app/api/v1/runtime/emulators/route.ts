@@ -1,2 +1,12 @@
 import { NextResponse } from "next/server";
-export async function GET() { return NextResponse.json({ data: [{ id: "Pixel_7", name: "Pixel 7 API 34", platform: "android", isRunning: true, hasSnapshot: true }], total: 1 }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+
+/**
+ * GET /api/v1/runtime/emulators
+ *
+ * Returns the emulator registry.
+ */
+export async function GET() {
+  const emus = runtimeState.listEmulators();
+  return NextResponse.json({ data: emus, total: emus.length });
+}

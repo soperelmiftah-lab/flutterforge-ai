@@ -1,2 +1,12 @@
 import { NextResponse } from "next/server";
-export async function GET() { return NextResponse.json({ data: [{ id: "chrome-1", name: "Chrome", platform: "web", isEmulator: false, isPhysical: true, isWireless: false, capabilities: ["hot-reload"], isBooted: true }, { id: "emulator-5554", name: "Pixel 7 API 34", platform: "android", isEmulator: true, isPhysical: false, isWireless: false, capabilities: ["hot-reload", "screenshot"], isBooted: true }], total: 2 }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+
+/**
+ * GET /api/v1/runtime/devices
+ *
+ * Returns the device registry (booted + attached devices).
+ */
+export async function GET() {
+  const devices = runtimeState.listDevices();
+  return NextResponse.json({ data: devices, total: devices.length });
+}

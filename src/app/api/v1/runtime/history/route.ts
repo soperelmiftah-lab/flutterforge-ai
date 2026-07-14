@@ -1,2 +1,11 @@
 import { NextResponse } from "next/server";
-export async function GET() { return NextResponse.json({ data: [] }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+
+/**
+ * GET /api/v1/runtime/history
+ *
+ * Returns runtime history (newest first).
+ */
+export async function GET() {
+  return NextResponse.json({ data: runtimeState.listHistory() });
+}

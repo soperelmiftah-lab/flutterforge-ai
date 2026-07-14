@@ -26,3 +26,5 @@ export * from "./diagnostics";
 export * from "./sessions";
 export * from "./history";
 export * from "./metrics";
+// Phase 8 — shared in-memory runtime state.
+export * from "./state";

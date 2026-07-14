@@ -1,2 +1,12 @@
 import { NextResponse } from "next/server";
-export async function GET() { return NextResponse.json({ data: { os: "linux", arch: "x64", java: { version: "17" }, androidSdk: { path: "/Android/Sdk", version: "34" }, chrome: { path: "/usr/bin/chrome", version: "120" }, git: { version: "2.39" }, pathEntries: [], environmentVariables: {} }, missingTools: [] }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+
+/**
+ * GET /api/v1/runtime/environment
+ *
+ * Returns the (simulated) environment info — OS, Java, Android SDK, Chrome,
+ * Git, PATH entries, environment variables.
+ */
+export async function GET() {
+  return NextResponse.json({ data: runtimeState.environment });
+}

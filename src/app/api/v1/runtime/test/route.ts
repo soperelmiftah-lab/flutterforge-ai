@@ -1,2 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-export async function POST(req: NextRequest) { return NextResponse.json({ data: { type: "unit", passed: 5, failed: 0, skipped: 0, coverage: 75, durationMs: 400, output: "All tests passed!", success: true } }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+import type { TestType } from "@/features/flutter-runtime/types";
+
+/**
+ * POST /api/v1/runtime/test
+ *
+ * Runs `flutter test` (simulated). Returns pass/fail/skip counts and
+ * coverage.
+ *
+ * Body: { type?: "unit" | "widget" | "integration" | "golden" }
+ */
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const type = (body.type ?? "unit") as TestType;
+  const result = runtimeState.runTest(type);
+  return NextResponse.json({ data: result });
+}

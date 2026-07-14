@@ -1,2 +1,14 @@
 import { NextResponse } from "next/server";
-export async function GET() { return NextResponse.json({ data: [{ version: "3.22.0", channel: "stable", dartVersion: "3.4.0", path: "/home/z/flutter", isCurrent: true, isValid: true }], current: { version: "3.22.0", channel: "stable", dartVersion: "3.4.0", path: "/home/z/flutter", isCurrent: true, isValid: true } }); }
+import { runtimeState } from "@/features/flutter-runtime/state";
+
+/**
+ * GET /api/v1/runtime/sdk
+ *
+ * Returns the (simulated) installed Flutter SDK.
+ */
+export async function GET() {
+  return NextResponse.json({
+    data: [runtimeState.sdk],
+    current: runtimeState.sdk,
+  });
+}

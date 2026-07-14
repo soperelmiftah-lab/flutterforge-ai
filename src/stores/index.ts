@@ -37,3 +37,5 @@ export { useToolIntelligenceStore, stepStatusColor } from "./tool-intelligence-s
 export { useTIMetricsStore } from "./ti-metrics-store";
 // Phase 7 — Flutter Platform store
 export { useFlutterPlatformStore } from "./flutter-platform-store";
+// Phase 8 — Runtime store
+export { useRuntimeStore } from "./runtime-store";
