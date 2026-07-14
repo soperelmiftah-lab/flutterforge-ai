@@ -55,8 +55,19 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login?error=true",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  // In production, NEXTAUTH_SECRET MUST be set as a Vercel environment variable.
+  // NextAuth auto-reads process.env.NEXTAUTH_SECRET, but we set it explicitly
+  // for clarity + to catch missing config early.
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 };
+
+// Runtime check — if we're in production and no secret, warn immediately.
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
+  console.error(
+    "[FlutterForge AI] FATAL: NEXTAUTH_SECRET is not set. " +
+    "Add it as an environment variable in Vercel: Settings → Environment Variables."
+  );
+}
 
 /**
  * Get the current authenticated user from a server context.
