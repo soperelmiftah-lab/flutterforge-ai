@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Mail, Lock, ArrowRight, Github } from "lucide-react";
+import { Mail, Lock, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,34 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
+/**
+ * Login page — wrapped in Suspense because useSearchParams() requires it
+ * for static prerendering during build.
+ */
 export default function LoginPage() {
+  return (
+    <React.Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </React.Suspense>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="w-full max-w-md">
+      <div className="rounded-2xl border border-border/70 bg-card/70 p-8 shadow-xl backdrop-blur-xl">
+        <div className="mb-6 text-center">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            {siteConfig.name}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/dashboard";
@@ -46,7 +73,6 @@ export default function LoginPage() {
 
   const handleGitHubLogin = async () => {
     setGithubLoading(true);
-    // signIn from useAuth redirects to GitHub OAuth
     signIn();
   };
 
