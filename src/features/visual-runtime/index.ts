@@ -46,3 +46,5 @@ export * from "./capture";
 export * from "./comparison";
 export * from "./annotations";
 export * from "./metrics";
+// Phase 9 — shared in-memory visual runtime state.
+export * from "./state";

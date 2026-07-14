@@ -39,3 +39,5 @@ export { useTIMetricsStore } from "./ti-metrics-store";
 export { useFlutterPlatformStore } from "./flutter-platform-store";
 // Phase 8 — Runtime store
 export { useRuntimeStore } from "./runtime-store";
+// Phase 9 — Visual Runtime store
+export { useVisualRuntimeStore } from "./visual-runtime-store";

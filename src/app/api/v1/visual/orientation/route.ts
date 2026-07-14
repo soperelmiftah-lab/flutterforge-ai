@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { visualState } from "@/features/visual-runtime/state";
 
 /**
- * POST /api/v1/visual/capture
+ * POST /api/v1/visual/orientation
  *
- * Capture a screenshot from a connected device. Generates a real SVG
- * screenshot with device-specific resolution + orientation.
+ * Toggle the orientation of a device (portrait ↔ landscape).
  * Body: { deviceId: string }
  */
 export async function POST(req: NextRequest) {
@@ -17,12 +16,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const screenshot = visualState.captureScreenshot(deviceId);
-  if (!screenshot) {
+  const device = visualState.toggleOrientation(deviceId);
+  if (!device) {
     return NextResponse.json(
-      { error: { code: "CAPTURE_FAILED", message: "Device not connected or not found" } },
-      { status: 400 }
+      { error: { code: "NOT_FOUND", message: `Device not found: ${deviceId}` } },
+      { status: 404 }
     );
   }
-  return NextResponse.json({ data: screenshot });
+  return NextResponse.json({ data: device });
 }

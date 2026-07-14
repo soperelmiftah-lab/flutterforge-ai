@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { captureWidgetTree } from "@/features/visual-runtime/widget-inspector";
+import { visualState } from "@/features/visual-runtime/state";
+
+/**
+ * GET /api/v1/visual/widget-tree
+ *
+ * Captures (or returns cached) the live widget tree of the running app.
+ */
 export async function GET() {
-  return NextResponse.json({ data: captureWidgetTree() });
+  const tree = visualState.captureWidgetTree();
+  return NextResponse.json({ data: tree });
 }

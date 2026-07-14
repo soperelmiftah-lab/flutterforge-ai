@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { captureRenderTree } from "@/features/visual-runtime/render-tree";
+import { visualState } from "@/features/visual-runtime/state";
+
+/**
+ * GET /api/v1/visual/render-tree
+ *
+ * Captures the render tree with layout/paint times per node.
+ */
 export async function GET() {
-  return NextResponse.json({ data: captureRenderTree() });
+  const tree = visualState.captureRenderTree();
+  return NextResponse.json({ data: tree });
 }

@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connect } from "@/features/visual-runtime/device-bridge";
+import { visualState } from "@/features/visual-runtime/state";
+
+/**
+ * POST /api/v1/visual/connect
+ *
+ * Connect to a device. Creates a visual session, starts event tracking.
+ * Body: { deviceId: string }
+ */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const result = connect(body.deviceId ?? "emulator-5554");
-  if (!result) return NextResponse.json({ error: { code: "CONNECT_FAILED", message: "Connection failed" } }, { status: 500 });
-  return NextResponse.json({ data: result });
+  const { deviceId } = body;
+  if (!deviceId) {
+    return NextResponse.json(
+      { error: { code: "INVALID_REQUEST", message: "deviceId is required" } },
+      { status: 400 }
+    );
+  }
+  const device = visualState.connectDevice(deviceId);
+  if (!device) {
+    return NextResponse.json(
+      { error: { code: "CONNECT_FAILED", message: `Device not found: ${deviceId}` } },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({
+    data: { device, sessionId: visualState.listActiveSessions().find((s) => s.deviceId === deviceId)?.id },
+  });
 }

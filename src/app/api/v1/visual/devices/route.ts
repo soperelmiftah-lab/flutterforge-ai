@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
-import { discoverDevices, getConnectedDevices } from "@/features/visual-runtime/adb";
+import { visualState } from "@/features/visual-runtime/state";
+
+/**
+ * GET /api/v1/visual/devices
+ *
+ * Returns the device registry + connected device count.
+ */
 export async function GET() {
-  const devices = discoverDevices();
-  const connected = getConnectedDevices();
-  return NextResponse.json({ data: devices, total: devices.length, connected: connected.length });
+  const devices = visualState.listDevices();
+  const connected = visualState.listConnectedDevices();
+  return NextResponse.json({
+    data: devices,
+    total: devices.length,
+    connected: connected.length,
+  });
 }

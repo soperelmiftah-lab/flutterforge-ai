@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { analyzeLayout } from "@/features/visual-runtime/layout-inspector";
+import { visualState } from "@/features/visual-runtime/state";
+
+/**
+ * GET /api/v1/visual/layout
+ *
+ * Analyzes the current layout for overflow, alignment, spacing issues.
+ */
 export async function GET() {
-  return NextResponse.json({ data: analyzeLayout() });
+  const report = visualState.analyzeLayout();
+  return NextResponse.json({ data: report });
 }

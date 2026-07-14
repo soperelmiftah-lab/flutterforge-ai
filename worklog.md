@@ -166,3 +166,61 @@ Stage Summary:
   - History → 3 entries (build 2607ms, hotreload 256ms, run 200ms)
   - Logs → 8+ entries with proper levels + sources + timestamps
   - UI: 13 tabs all functional, Run Center shows active session with live logs + hot reload, Build Center shows build job with 7-step log, Log Viewer shows accumulated logs with stats, Metrics shows real aggregated data.
+
+---
+Task ID: 4
+Agent: main
+Task: Phase 9 (Visual Runtime) — make it "working" status (real in-memory visual runtime state).
+
+Work Log:
+- Created `src/features/visual-runtime/state/index.ts` — shared in-memory visual runtime state (persists via globalThis). Holds devices, screenshots, streams, sessions, events, console entries, frame history, annotations, current route, route stack, total connections counter.
+- Real stateful operations:
+  - Devices: 3 default devices (emulator + 2 physical), connect/disconnect creates/ends sessions + emits events + logs
+  - Screenshots: captureScreenshot() generates real SVG screenshots with device-specific resolution + orientation + random screen names + timestamps; gallery persists
+  - Streams: start/stop/pause/resume with status transitions + logs
+  - Sessions: createSession() on connect, endSessionsForDevice() on disconnect, isActive flag
+  - Events: recordEvent() for tap/scroll/navigation/keyboard/lifecycle; simulate() drives interactions; route stack updates on navigation
+  - Console: log() with level + source + timestamp; consoleStats() aggregates counts
+  - Frame monitor: captureFrameStats() generates FPS/dropped/jank stats with realistic variation; frameHistory accumulates (60 max); resetJankStats()
+  - Performance overlay: raster/ui/gpu/memory with random variation
+  - Widget tree: buildWidgetTreeRoot() uses currentRoute to name the screen dynamically
+  - Layout inspector: random issues (overflow/alignment/spacing) with probability-based generation
+  - Render tree: fixed structure with layout/paint times
+  - Vision context: combines widget tree + layout + frame stats + navigation state + device info
+  - Annotations: add/clear
+  - Comparison: pixel/structural/widget differences
+  - Metrics: computed from real state (screenshots, streams, connections, fps, jank, layout issues, errors)
+- Updated 10 existing API routes to use shared state: devices, connect, disconnect, capture, screenshots, widget-tree, layout, render-tree, metrics, events
+- Added 10 new API routes: stream, console, frames, performance, vision, sessions, simulate, compare, annotations, orientation
+- Created `src/stores/visual-runtime-store.ts` — Zustand store with full state + all actions
+- Updated UI (`src/app/(app)/visual/page.tsx`) with 13 tabs all backed by real state:
+  - Dashboard: real metrics (connected devices, active sessions, screenshots, avg fps)
+  - Device Bridge: 3 devices with connect/disconnect + orientation toggle + full device info
+  - Device Preview: device selector, capture/rotate/stream buttons, real SVG screenshot display
+  - Screenshots: gallery grid with real captured images
+  - Widget Inspector: expandable tree with properties + focused/hidden badges
+  - Layout Inspector: real issues with severity/type/rect
+  - Render Tree: expandable tree with layout/paint times
+  - Frame Monitor: latest stats + FPS history bar chart (60 bars)
+  - Performance: raster/ui/gpu/memory overlay
+  - Console: live log buffer with level colors + stats (polls 3s)
+  - Events: simulate buttons (tap/scroll/navigation/keyboard) + event log
+  - Vision Context: structured context for AI (current screen, widget summary, layout summary, runtime state, navigation state, device info, full JSON)
+  - Metrics: 7 real aggregated metrics
+- Fixed SVG template typo (missing `}` in y attribute).
+
+Stage Summary:
+- Phase 9 (Visual Runtime) is now "Working" — no longer mock.
+- 1 new state module + 10 new API routes + 1 new store + complete UI overhaul.
+- All visual runtime operations are stateful: devices persist, screenshots accumulate, streams are stateful, events recorded, frame stats tracked over time, navigation updates route stack.
+- The vision context correctly reflects simulated navigation (e.g., navigating to /details → currentScreen becomes detailsScreen, routeStack becomes ["/", "/details"]).
+- Verified end-to-end with curl + Agent Browser:
+  - 3 devices, 1 connected by default (emulator)
+  - Connect Pixel 8 via USB → success
+  - Capture screenshot → real SVG 1080x2400
+  - Start stream → 30 fps
+  - Simulate tap + navigation → events recorded
+  - Vision context → currentScreen: detailsScreen, route: /details, routeStack: ["/", "/details"], 8 widgets, top widgets: MaterialApp/Scaffold/AppBar/Center/FAB
+  - Frame stats → 60 fps, 0 jank
+  - Metrics → screenshots: 1, streams: 1, connections: 1
+  - UI: 13 tabs all functional, Device Preview shows real SVG screenshot, Frame Monitor shows FPS history bar chart, Vision Context shows full structured JSON, Events tab has simulate buttons that actually record events.
