@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { simulateChain } from "@/features/tool-intelligence/simulation";
-import { chainStore } from "../analyze/route";
+import { getChain } from "@/features/tool-intelligence/state";
 
 /**
  * POST /api/v1/tools/simulate
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const chain = chainStore.get(chainId);
+  const chain = getChain(chainId);
   if (!chain) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Chain not found" } },

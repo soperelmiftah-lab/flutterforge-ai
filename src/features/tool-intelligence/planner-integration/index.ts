@@ -7,18 +7,21 @@
  * to the Execution Engine.
  *
  * Flow:
- *   Planner task → analyzeCapabilities → buildChain → simulate → validate
- *     → optimize → recommend → hand to Execution Engine
+ *   Planner task → analyzeCapabilities → buildChain (AI or template)
+ *     → simulate → validate → optimize → recommend → hand to Execution Engine
  */
 
 import type { ToolChain } from "../types";
 import { analyzeCapabilities } from "../capabilities";
 import { buildChain } from "../chains";
+import { buildChainWithAI } from "../ai-builder";
 import { simulateChain } from "../simulation";
 import { validateChain } from "../validator";
 import { optimizeChain } from "../optimizer";
 import { generateRecommendations } from "../recommendations";
+import { executeChain, type ExecuteChainOptions } from "../executor";
 import type { IntentType } from "@/features/planner/types";
+import type { ChainExecution } from "../state/execution-types";
 
 export interface PlannerToolPlan {
   chain: ToolChain;
@@ -28,7 +31,12 @@ export interface PlannerToolPlan {
   recommendations: ReturnType<typeof generateRecommendations>;
 }
 
-/** Build a complete tool plan for a planner task. */
+export interface PlannerToolPlanWithAI extends PlannerToolPlan {
+  rationale: string;
+  aiGenerated: boolean;
+}
+
+/** Build a complete tool plan for a planner task (synchronous, template-based). */
 export function buildToolPlan(
   taskId: string,
   objective: string,
@@ -60,6 +68,55 @@ export function buildToolPlan(
     optimizedChain,
     recommendations,
   };
+}
+
+/**
+ * Build a tool plan using the AI-driven chain builder (async). Falls back to
+ * the template-based builder if the AI is unavailable.
+ */
+export async function buildToolPlanWithAI(
+  taskId: string,
+  objective: string,
+  intentType: IntentType,
+  requiredFiles: string[] = []
+): Promise<PlannerToolPlanWithAI> {
+  analyzeCapabilities(taskId, intentType, requiredFiles);
+
+  const aiResult = await buildChainWithAI(taskId, objective, intentType, requiredFiles);
+  const chain = aiResult?.chain ?? buildChain(taskId, objective, intentType, requiredFiles);
+  const rationale = aiResult?.rationale ?? "";
+  const aiGenerated = !!aiResult;
+
+  const simulation = simulateChain(chain);
+  const validation = validateChain(chain.steps);
+  const optimizedChain = optimizeChain(chain);
+  const recommendations = generateRecommendations(chain);
+
+  return {
+    chain,
+    simulation,
+    validation,
+    optimizedChain,
+    recommendations,
+    rationale,
+    aiGenerated,
+  };
+}
+
+/**
+ * Build a tool plan AND execute it against the Execution Engine. Returns the
+ * plan + the real execution results (per-step success/failure + recovery).
+ */
+export async function buildAndExecuteToolPlan(
+  taskId: string,
+  objective: string,
+  intentType: IntentType,
+  requiredFiles: string[] = [],
+  executeOptions?: ExecuteChainOptions
+): Promise<{ plan: PlannerToolPlanWithAI; execution: ChainExecution }> {
+  const plan = await buildToolPlanWithAI(taskId, objective, intentType, requiredFiles);
+  const execution = await executeChain(plan.chain, executeOptions ?? {});
+  return { plan, execution };
 }
 
 /** Quick summary for display. */

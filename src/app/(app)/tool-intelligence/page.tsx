@@ -3,7 +3,8 @@
 import * as React from "react";
 import {
   Wand2, Network, Eye, ShieldAlert, Zap, Lightbulb, BarChart3,
-  Play, Loader2, Send, RefreshCw, type LucideIcon,
+  Play, Loader2, Send, RefreshCw, Cpu, Sparkles, type LucideIcon,
+  CheckCircle2, XCircle, SkipForward, RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,14 @@ import { Separator } from "@/components/ui/separator";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useToolIntelligenceStore, useTIMetricsStore } from "@/stores";
-import type { ToolChain, ChainStep, SimulationResult, Recommendation, RecoveryAction } from "@/features/tool-intelligence/types";
+import {
+  useToolIntelligenceStore, stepStatusColor,
+} from "@/stores";
+import { useTIMetricsStore } from "@/stores";
+import type { ToolChain, ChainStep, SimulationResult, Recommendation } from "@/features/tool-intelligence/types";
+import type {
+  ChainExecution, StepExecution,
+} from "@/features/tool-intelligence/state/execution-types";
 import { riskColor, riskLabel } from "@/features/tool-intelligence/risk";
 import { formatCost } from "@/features/tool-intelligence/cost";
 import { recommendationKindMeta } from "@/features/tool-intelligence/recommendations";
@@ -24,12 +31,14 @@ import { toast } from "sonner";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: Wand2 },
+  { id: "execution", label: "Execution", icon: Cpu },
   { id: "chain", label: "Chain Viewer", icon: Network },
   { id: "simulation", label: "Simulation", icon: Eye },
   { id: "recovery", label: "Recovery", icon: ShieldAlert },
   { id: "optimization", label: "Optimization", icon: Zap },
   { id: "recommendations", label: "Recommendations", icon: Lightbulb },
   { id: "risk", label: "Risk Dashboard", icon: BarChart3 },
+  { id: "learning", label: "Learning", icon: Sparkles },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -37,12 +46,18 @@ type TabId = (typeof tabs)[number]["id"];
 export default function ToolIntelligencePage() {
   const [active, setActive] = React.useState<TabId>("dashboard");
   const hydrateMetrics = useTIMetricsStore((s) => s.hydrate);
+  const fetchLearning = useToolIntelligenceStore((s) => s.fetchLearning);
+  const fetchExecutions = useToolIntelligenceStore((s) => s.fetchExecutions);
 
-  React.useEffect(() => { hydrateMetrics(); }, [hydrateMetrics]);
+  React.useEffect(() => {
+    hydrateMetrics();
+    fetchLearning();
+    fetchExecutions();
+  }, [hydrateMetrics, fetchLearning, fetchExecutions]);
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-muted/20 px-2 overflow-x-auto ff-scroll">
+      <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-muted/20 px-2 ff-scroll">
         {tabs.map((t) => {
           const Icon = t.icon;
           return (
@@ -57,12 +72,14 @@ export default function ToolIntelligencePage() {
       </div>
       <div className="min-h-0 flex-1">
         {active === "dashboard" && <Dashboard />}
+        {active === "execution" && <ExecutionPanel />}
         {active === "chain" && <ChainViewer />}
         {active === "simulation" && <SimulationPanel />}
         {active === "recovery" && <RecoveryCenter />}
         {active === "optimization" && <OptimizationPanel />}
         {active === "recommendations" && <Recommendations />}
         {active === "risk" && <RiskDashboard />}
+        {active === "learning" && <LearningPanel />}
       </div>
     </div>
   );
@@ -70,7 +87,7 @@ export default function ToolIntelligencePage() {
 
 // ─── Shared helpers ─────────────────────────────────────────────────────
 
-function Metric({ label, value, sub, className }: { label: string; value: string | number; sub?: string; className?: string }) {
+function Metric({ label, value, sub, className }: { label: string; value: React.ReactNode; sub?: string; className?: string }) {
   return (
     <div className={cn("rounded-lg border border-border/60 bg-muted/30 p-3", className)}>
       <div className="text-lg font-semibold text-foreground">{value}</div>
@@ -94,11 +111,32 @@ function EmptyState({ icon, title, description }: { icon?: LucideIcon; title: st
 // ─── Dashboard ──────────────────────────────────────────────────────────
 
 function Dashboard() {
-  const { objective, setObjective, intentType, setIntentType, chain, recommendations, loading, error, buildChain, simulate, optimize } = useToolIntelligenceStore();
+  const {
+    objective, setObjective, intentType, setIntentType,
+    chain, recommendations, rationale, aiGenerated,
+    loading, error, buildChain, simulate, optimize, execute, executing,
+  } = useToolIntelligenceStore();
 
   const handleAnalyze = async () => {
     await buildChain();
-    toast.success("Tool chain built");
+    toast.success("Tool chain built", {
+      description: aiGenerated ? "AI-generated chain ready" : undefined,
+    });
+  };
+
+  const handleExecute = async () => {
+    toast.info("Executing chain…");
+    await execute();
+    const exec = useToolIntelligenceStore.getState().execution;
+    if (exec) {
+      if (exec.status === "completed") {
+        toast.success(`Chain executed — ${exec.successCount}/${exec.steps.length} steps succeeded`);
+      } else if (exec.status === "partial") {
+        toast.warning(`Partial execution — ${exec.successCount} succeeded, ${exec.failureCount} failed`);
+      } else {
+        toast.error(`Execution failed — ${exec.failureCount} steps failed`);
+      }
+    }
   };
 
   return (
@@ -111,7 +149,7 @@ function Dashboard() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input value={objective} onChange={(e) => setObjective(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !loading && handleAnalyze()}
-              placeholder="Describe the objective… (e.g. 'Add a login screen')"
+              placeholder="Describe the objective… (e.g. 'Add a login screen with email + password fields')"
               className="flex-1" autoFocus />
             <Select value={intentType} onValueChange={(v) => setIntentType(v as any)}>
               <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
@@ -137,6 +175,25 @@ function Dashboard() {
 
       {chain && (
         <>
+          {/* AI Analysis panel */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5" /> AI Analysis
+                </h4>
+                {aiGenerated ? (
+                  <Badge variant="outline" className="text-[9px] text-violet-600 dark:text-violet-400">AI-generated</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[9px] text-muted-foreground">Template fallback</Badge>
+                )}
+              </div>
+              <p className="text-xs text-foreground leading-relaxed">
+                {rationale || "Chain built from intent-type defaults."}
+              </p>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label="Steps" value={chain.steps.length} />
             <Metric label="Risk Score" value={<span className={riskColor(chain.riskScore)}>{chain.riskScore.toFixed(2)}</span>} sub={riskLabel(chain.riskScore)} />
@@ -148,12 +205,16 @@ function Dashboard() {
             <CardContent className="p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tool Chain</h4>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={simulate} disabled={loading}>
                     <Eye className="mr-1 h-3 w-3" />Simulate
                   </Button>
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={optimize} disabled={loading}>
                     <Zap className="mr-1 h-3 w-3" />Optimize
+                  </Button>
+                  <Button size="sm" variant="default" className="h-7 text-xs" onClick={handleExecute} disabled={executing}>
+                    {executing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Play className="mr-1 h-3 w-3" />}
+                    Execute
                   </Button>
                 </div>
               </div>
@@ -183,7 +244,8 @@ function Dashboard() {
       )}
 
       {!chain && !loading && (
-        <EmptyState icon={Wand2} title="Analyze an objective" description="Enter an objective and the Tool Intelligence Layer will build the optimal tool chain, estimate costs, and assess risk." />
+        <EmptyState icon={Wand2} title="Analyze an objective"
+          description="Enter an objective and the Tool Intelligence Layer will use the AI Chat Engine to build an optimal tool chain, then estimate costs and assess risk." />
       )}
     </div>
   );
@@ -217,6 +279,147 @@ function RecRow({ rec }: { rec: Recommendation }) {
   );
 }
 
+// ─── Execution Panel (REAL EXECUTION) ───────────────────────────────────
+
+function ExecutionPanel() {
+  const { chain, execution, executions, executing, execute } = useToolIntelligenceStore();
+  if (!chain) return <EmptyState icon={Cpu} title="No chain to execute" description="Build a chain from the Dashboard first." />;
+
+  return (
+    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Real Execution</h3>
+        <Button size="sm" variant="default" className="h-7 text-xs" onClick={execute} disabled={executing}>
+          {executing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Play className="mr-1 h-3 w-3" />}
+          {executing ? "Executing…" : "Execute Chain"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Each step is dispatched to the Execution Engine, which validates permissions, runs the tool, generates patches, records history, and emits events. Failures trigger automatic recovery (retry / alternative / rollback / skip / escalate).
+      </p>
+
+      {execution ? <ExecutionDetail exec={execution} /> : (
+        <EmptyState icon={Cpu} title="No execution yet"
+          description="Click Execute Chain to run the chain against the Execution Engine." />
+      )}
+
+      {executions.length > 1 && (
+        <Card>
+          <CardContent className="p-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Execution History</h4>
+            <div className="max-h-96 space-y-1.5 overflow-y-auto ff-scroll">
+              {executions.map((e) => (
+                <div key={e.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
+                  <Badge variant="outline" className={cn("text-[9px] capitalize", execStatusColor(e.status))}>{e.status}</Badge>
+                  <span className="font-mono text-foreground truncate flex-1">{e.objective}</span>
+                  <span className="text-[10px] text-muted-foreground">{e.successCount}/{e.steps.length} ok</span>
+                  <span className="text-[10px] text-muted-foreground">{(e.durationMs / 1000).toFixed(2)}s</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ExecutionDetail({ exec }: { exec: ChainExecution }) {
+  const progress = exec.steps.length === 0
+    ? 0
+    : Math.round(
+        (exec.steps.filter((s) => s.status === "success" || s.status === "failed" || s.status === "skipped" || s.status === "rolled-back").length /
+          exec.steps.length) * 100);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Metric label="Progress" value={`${progress}%`} />
+        <Metric label="Succeeded" value={<span className="text-emerald-600 dark:text-emerald-400">{exec.successCount}</span>} />
+        <Metric label="Failed" value={<span className="text-rose-600 dark:text-rose-400">{exec.failureCount}</span>} />
+        <Metric label="Skipped" value={<span className="text-muted-foreground">{exec.skippedCount}</span>} />
+        <Metric label="Duration" value={`${(exec.durationMs / 1000).toFixed(2)}s`} />
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step Results</h4>
+            <Badge variant="outline" className={cn("text-[9px] capitalize", execStatusColor(exec.status))}>{exec.status}</Badge>
+          </div>
+          <div className="space-y-2">
+            {exec.steps.map((s, i) => <StepResultRow key={s.stepId} step={s} index={i} />)}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function StepResultRow({ step, index }: { step: StepExecution; index: number }) {
+  const output = step.result?.output;
+  return (
+    <div className="rounded-md border border-border/60 bg-card p-3 text-xs">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">{index + 1}</span>
+        {renderStepIcon(step.status)}
+        <span className="font-mono text-foreground">{step.toolId}</span>
+        <Badge variant="outline" className={cn("text-[9px] capitalize", stepStatusColor(step.status))}>{step.status}</Badge>
+        {step.durationMs !== undefined && (
+          <span className="ml-auto text-[10px] text-muted-foreground">{(step.durationMs / 1000).toFixed(2)}s</span>
+        )}
+      </div>
+      {step.error && <p className="ml-7 mb-1 text-[11px] text-rose-600 dark:text-rose-400">Error: {step.error}</p>}
+      {step.recoveryAttempts && step.recoveryAttempts.length > 0 && (
+        <div className="ml-7 mb-1 space-y-0.5">
+          {step.recoveryAttempts.map((a, i) => (
+            <div key={i} className="text-[10px] text-amber-600 dark:text-amber-400">
+              ↩ Recovery ({a.action}): {a.message}
+            </div>
+          ))}
+        </div>
+      )}
+      {output !== undefined && (
+        <pre className="ml-7 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-[10px] text-muted-foreground ff-scroll">
+          {formatOutput(output)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+/** Render the right icon element for a step status (avoids creating a component during render). */
+function renderStepIcon(status: StepExecution["status"]) {
+  const className = cn("h-3.5 w-3.5", stepStatusColor(status));
+  switch (status) {
+    case "success": return <CheckCircle2 className={className} />;
+    case "failed": return <XCircle className={className} />;
+    case "skipped": return <SkipForward className={className} />;
+    case "rolled-back": return <RotateCcw className={className} />;
+    case "running": return <Loader2 className={cn(className, "animate-spin")} />;
+    default: return <Loader2 className={className} />;
+  }
+}
+
+function formatOutput(output: unknown): string {
+  if (typeof output === "string") return output;
+  try {
+    return JSON.stringify(output, null, 2);
+  } catch {
+    return String(output);
+  }
+}
+
+function execStatusColor(status: ChainExecution["status"]): string {
+  switch (status) {
+    case "completed": return "text-emerald-600 dark:text-emerald-400";
+    case "partial": return "text-amber-600 dark:text-amber-400";
+    case "failed": return "text-rose-600 dark:text-rose-400";
+    case "running": return "text-sky-600 dark:text-sky-400";
+    default: return "text-muted-foreground";
+  }
+}
+
 // ─── Chain Viewer ───────────────────────────────────────────────────────
 
 function ChainViewer() {
@@ -228,7 +431,7 @@ function ChainViewer() {
       <div className="space-y-2">
         {chain.steps.map((step, i) => (
           <div key={step.id} className="rounded-lg border border-border/60 bg-card p-3">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1 flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">{i + 1}</span>
               <span className="font-mono text-sm text-foreground">{step.toolId}</span>
               <Badge variant="outline" className="text-[9px] capitalize">{step.type}</Badge>
@@ -332,7 +535,7 @@ function RecoveryCenter() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {actions.map((a) => (
           <Card key={a.action}><CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1 flex items-center gap-2">
               <Badge variant="outline" className="text-[9px] capitalize">{a.action}</Badge>
               <span className="text-sm font-medium text-foreground">{a.label}</span>
             </div>
@@ -408,7 +611,7 @@ function Recommendations() {
         const meta = recommendationKindMeta(r.kind);
         return (
           <Card key={r.id}><CardContent className="p-4">
-            <div className="flex items-start gap-2 mb-2">
+            <div className="mb-2 flex items-start gap-2">
               <span className="text-xl">{meta.icon}</span>
               <div className="flex-1">
                 <span className={cn("text-sm font-medium", meta.color)}>{r.title}</span>
@@ -489,6 +692,86 @@ function RiskDashboard() {
           </div>
         )}
       </CardContent></Card>
+    </div>
+  );
+}
+
+// ─── Learning Panel ─────────────────────────────────────────────────────
+
+function LearningPanel() {
+  const { learningSummaries, fetchLearning } = useToolIntelligenceStore();
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = async () => {
+    setLoading(true);
+    await fetchLearning();
+    setLoading(false);
+  };
+
+  React.useEffect(() => { void refresh(); }, []);
+
+  const sorted = [...learningSummaries].sort((a, b) => b.totalUses - a.totalUses);
+
+  return (
+    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Tool Learning</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={refresh} disabled={loading}>
+          {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1 h-3 w-3" />}
+          Refresh
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Real execution outcomes recorded by the Learning Store. Used by the Tool Selector to improve future tool choices.
+      </p>
+
+      {sorted.length === 0 ? (
+        <EmptyState icon={Sparkles} title="No learning data yet"
+          description="Execute a chain from the Execution tab — every successful or failed step is recorded here." />
+      ) : (
+        <Card><CardContent className="p-4">
+          <div className="max-h-[28rem] overflow-y-auto ff-scroll">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-card">
+                <tr className="text-left text-[10px] uppercase text-muted-foreground">
+                  <th className="pb-2 pr-2">Tool</th>
+                  <th className="pb-2 pr-2">Uses</th>
+                  <th className="pb-2 pr-2">Success</th>
+                  <th className="pb-2 pr-2">Failed</th>
+                  <th className="pb-2 pr-2">Avg ms</th>
+                  <th className="pb-2">Reliability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((s) => (
+                  <tr key={s.toolId} className="border-t border-border/40">
+                    <td className="py-1.5 pr-2 font-mono text-foreground">{s.toolId}</td>
+                    <td className="py-1.5 pr-2 text-muted-foreground">{s.totalUses}</td>
+                    <td className="py-1.5 pr-2 text-emerald-600 dark:text-emerald-400">{s.successCount}</td>
+                    <td className="py-1.5 pr-2 text-rose-600 dark:text-rose-400">{s.failureCount}</td>
+                    <td className="py-1.5 pr-2 text-muted-foreground">{s.averageDurationMs}</td>
+                    <td className="py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-16 overflow-hidden rounded bg-muted">
+                          <div
+                            className={cn(
+                              "h-full rounded",
+                              s.reliability > 0.8 ? "bg-emerald-500" :
+                              s.reliability > 0.5 ? "bg-amber-500" : "bg-rose-500"
+                            )}
+                            style={{ width: `${Math.round(s.reliability * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{(s.reliability * 100).toFixed(0)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent></Card>
+      )}
     </div>
   );
 }

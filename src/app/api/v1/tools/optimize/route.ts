@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optimizeChain, compareChains } from "@/features/tool-intelligence/optimizer";
-import { chainStore } from "../analyze/route";
+import { getChain, storeChain } from "@/features/tool-intelligence/state";
 
 /**
  * POST /api/v1/tools/optimize
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const chain = chainStore.get(chainId);
+  const chain = getChain(chainId);
   if (!chain) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Chain not found" } },
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const optimized = optimizeChain(chain);
-    chainStore.set(optimized.id, optimized);
+    storeChain(optimized);
     const comparison = compareChains(chain, optimized);
     return NextResponse.json({ data: optimized, comparison });
   } catch (e: unknown) {

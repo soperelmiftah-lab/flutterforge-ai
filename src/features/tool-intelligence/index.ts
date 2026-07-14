@@ -44,3 +44,8 @@ export * from "./negotiation";
 export * from "./learning";
 export * from "./metrics";
 export * from "./planner-integration";
+export * from "./state";
+
+// Phase 6 — real AI-driven chain building + real execution.
+export { buildChainWithAI, type AIChainAnalysis } from "./ai-builder";
+export { executeChain, type ExecuteChainOptions } from "./executor";

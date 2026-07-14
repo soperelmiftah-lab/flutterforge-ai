@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { chainStore } from "../analyze/route";
+import { listChains } from "@/features/tool-intelligence/state";
 
 /**
  * GET /api/v1/tools/chains
@@ -7,6 +7,6 @@ import { chainStore } from "../analyze/route";
  * Returns all built tool chains.
  */
 export async function GET() {
-  const chains = Array.from(chainStore.values());
+  const chains = listChains();
   return NextResponse.json({ data: chains, total: chains.length });
 }
