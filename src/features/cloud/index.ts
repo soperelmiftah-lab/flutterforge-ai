@@ -17,3 +17,5 @@ export * from "./policies";
 export * from "./security";
 export * from "./metrics";
 export * from "./history";
+// Phase 12 — shared in-memory cloud state.
+export * from "./state";

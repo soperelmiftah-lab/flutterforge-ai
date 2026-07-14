@@ -45,3 +45,5 @@ export { useVisualRuntimeStore } from "./visual-runtime-store";
 export { useVisionAIStore } from "./vision-ai-store";
 // Phase 11 — Autonomous store
 export { useAutonomousStore } from "./autonomous-store";
+// Phase 12 — Cloud store
+export { useCloudStore } from "./cloud-store";

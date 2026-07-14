@@ -1,9 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { submitTest } from "@/features/cloud/jobs";
-import { processQueue } from "@/features/cloud/scheduler";
+import { NextResponse } from "next/server";
+import { cloudState } from "@/features/cloud/state";
 
-export async function POST(req: NextRequest) {
-  const job = submitTest();
-  await processQueue();
+/**
+ * POST /api/v1/cloud/test
+ *
+ * Submit a test job.
+ */
+export async function POST() {
+  const job = cloudState.enqueueJob({
+    type: "test",
+    command: "flutter",
+    args: ["test"],
+    runtimeType: "local",
+  });
+  await cloudState.processQueue();
   return NextResponse.json({ data: job });
 }
