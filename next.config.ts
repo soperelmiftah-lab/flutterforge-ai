@@ -6,14 +6,12 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  // z-ai-web-dev-sdk uses Node.js built-ins (fs/promises) that Turbopack
-  // can't bundle. Mark it as a server external so it runs natively on the server.
   serverExternalPackages: ["z-ai-web-dev-sdk"],
-  // Allow the preview iframe domain to access the dev server without
-  // triggering cross-origin redirect loops.
   allowedDevOrigins: [
+    "preview-chat-7fef10c8-0747-4ccc-bc90-d8946fc5ed50.space-z.ai",
     "*.space-z.ai",
-    "preview-chat-*.space-z.ai",
+    "localhost:81",
+    "localhost:3000",
   ],
 };
 
