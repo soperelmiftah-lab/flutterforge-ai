@@ -7,6 +7,12 @@
  * - Prisma adapter stores sessions/accounts in PostgreSQL (Supabase)
  * - JWT strategy for stateless session tokens (works with Vercel edge)
  * - `getCurrentUser()` helper for server components + API routes
+ *
+ * Required environment variables (set in Vercel → Settings → Environment Variables):
+ *   - NEXTAUTH_SECRET       (random 32+ char string)
+ *   - GITHUB_CLIENT_ID      (from GitHub OAuth App)
+ *   - GITHUB_CLIENT_SECRET  (from GitHub OAuth App)
+ *   - DATABASE_URL          (Supabase connection string)
  */
 
 import type { NextAuthOptions } from "next-auth";
@@ -14,6 +20,24 @@ import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter } from "next-auth/adapters";
 import { db } from "@/lib/db";
+
+// Read env vars with fallbacks for flexibility.
+const GITHUB_ID = process.env.GITHUB_CLIENT_ID || process.env.GITHUB_ID;
+const GITHUB_SECRET = process.env.GITHUB_CLIENT_SECRET || process.env.GITHUB_SECRET;
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+
+// Runtime validation — log clear errors if env vars are missing.
+if (process.env.NODE_ENV === "production") {
+  if (!NEXTAUTH_SECRET) {
+    console.error("[Auth] FATAL: NEXTAUTH_SECRET is not set. Add it in Vercel Environment Variables.");
+  }
+  if (!GITHUB_ID) {
+    console.error("[Auth] FATAL: GITHUB_CLIENT_ID is not set. Add it in Vercel Environment Variables.");
+  }
+  if (!GITHUB_SECRET) {
+    console.error("[Auth] FATAL: GITHUB_CLIENT_SECRET is not set. Add it in Vercel Environment Variables.");
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db) as Adapter,
@@ -23,8 +47,8 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: GITHUB_ID!,
+      clientSecret: GITHUB_SECRET!,
       // Request additional scopes for repo access (future: push to GitHub)
       authorization: {
         params: {
@@ -55,19 +79,8 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login?error=true",
   },
-  // In production, NEXTAUTH_SECRET MUST be set as a Vercel environment variable.
-  // NextAuth auto-reads process.env.NEXTAUTH_SECRET, but we set it explicitly
-  // for clarity + to catch missing config early.
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  secret: NEXTAUTH_SECRET,
 };
-
-// Runtime check — if we're in production and no secret, warn immediately.
-if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
-  console.error(
-    "[FlutterForge AI] FATAL: NEXTAUTH_SECRET is not set. " +
-    "Add it as an environment variable in Vercel: Settings → Environment Variables."
-  );
-}
 
 /**
  * Get the current authenticated user from a server context.
