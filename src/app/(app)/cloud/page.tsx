@@ -3,13 +3,18 @@
 import * as React from "react";
 import {
   Cloud, Cpu, ListChecks, Package, Smartphone, FolderArchive,
-  Activity, Terminal, Layers, BarChart3, Play, Loader2,
-  type LucideIcon,
+  Activity, Terminal, Layers, BarChart3, Play, Loader2, Plus, X,
+  Trash2, RefreshCw, Power, History, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { useCloudStore } from "@/stores";
+import type { RuntimeType, BuildTarget, BuildMode, JobType } from "@/features/cloud/types";
 import { toast } from "sonner";
 
 const tabs = [
@@ -22,6 +27,7 @@ const tabs = [
   { id: "monitoring", label: "Monitoring", icon: Activity },
   { id: "logs", label: "Cloud Logs", icon: Terminal },
   { id: "adapters", label: "Runtime Adapters", icon: Layers },
+  { id: "history", label: "History", icon: History },
   { id: "metrics", label: "Metrics", icon: BarChart3 },
 ] as const;
 
@@ -29,9 +35,13 @@ type TabId = (typeof tabs)[number]["id"];
 
 export default function CloudPage() {
   const [active, setActive] = React.useState<TabId>("dashboard");
+  const hydrate = useCloudStore((s) => s.hydrate);
+
+  React.useEffect(() => { void hydrate(); }, [hydrate]);
+
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-muted/20 px-2 overflow-x-auto ff-scroll">
+      <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-muted/20 px-2 ff-scroll">
         {tabs.map((t) => {
           const Icon = t.icon;
           return (
@@ -53,19 +63,17 @@ export default function CloudPage() {
         {active === "monitoring" && <MonitoringPanel />}
         {active === "logs" && <LogsPanel />}
         {active === "adapters" && <AdaptersPanel />}
+        {active === "history" && <HistoryPanel />}
         {active === "metrics" && <MetricsPanel />}
       </div>
     </div>
   );
 }
 
-function Metric({ label, value, className }: { label: string; value: string | number; className?: string }) {
-  return (
-    <div className={cn("rounded-lg border border-border/60 bg-muted/30 p-3", className)}>
-      <div className="text-lg font-semibold text-foreground">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
-  );
+// ─── Shared helpers ─────────────────────────────────────────────────────
+
+function Metric({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
+  return (<div className={cn("rounded-lg border border-border/60 bg-muted/30 p-3", className)}><div className="text-lg font-semibold text-foreground">{value}</div><div className="text-[10px] text-muted-foreground">{label}</div></div>);
 }
 
 function EmptyState({ icon, title, description }: { icon?: LucideIcon; title: string; description?: string }) {
@@ -79,37 +87,44 @@ function EmptyState({ icon, title, description }: { icon?: LucideIcon; title: st
   );
 }
 
-function useFetch<T>(url: string): { data: T | null; loading: boolean; refresh: () => void } {
-  const [data, setData] = React.useState<T | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [nonce, setNonce] = React.useState(0);
-  React.useEffect(() => { setLoading(true); fetch(url).then(r => r.json()).then(d => setData(d)).catch(() => {}).finally(() => setLoading(false)); }, [url, nonce]);
-  return { data, loading, refresh: () => setNonce(n => n + 1) };
+function statusColor(status: string): string {
+  switch (status) {
+    case "success": case "completed": case "idle": case "available": return "text-emerald-600 dark:text-emerald-400";
+    case "running": case "busy": case "reserved": case "queued": return "text-sky-600 dark:text-sky-400";
+    case "failed": case "error": case "offline": return "text-rose-600 dark:text-rose-400";
+    case "cancelled": case "timeout": return "text-amber-600 dark:text-amber-400";
+    default: return "text-muted-foreground";
+  }
 }
 
 // ─── Dashboard ──────────────────────────────────────────────────────────
 
 function Dashboard({ onNavigate }: { onNavigate: (t: TabId) => void }) {
-  const { data } = useFetch<any>("/api/v1/cloud/metrics");
-  const m = data?.data;
+  const { workers, monitoring, metrics, completedJobs, artifacts } = useCloudStore();
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
       <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-transparent p-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-2xl">☁️</div>
         <div>
           <h2 className="text-lg font-semibold text-foreground">Cloud Development Platform</h2>
-          <p className="text-xs text-muted-foreground">Distributed execution with interchangeable Runtime Adapters — local, Docker, remote, cloud, and CI.</p>
+          <p className="text-xs text-muted-foreground">Real in-memory cloud — workers persist, jobs queue + execute, builds produce artifacts, devices reserve, cost accumulates.</p>
         </div>
       </div>
-      {m && (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Metric label="Workers" value={workers.length} />
+        <Metric label="Active Workers" value={monitoring?.activeWorkers ?? 0} />
+        <Metric label="Completed Jobs" value={monitoring?.completedJobs ?? 0} />
+        <Metric label="Artifacts" value={artifacts.length} />
+      </div>
+      {metrics && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric label="Workers" value={m.monitoring.totalWorkers} />
-          <Metric label="Queued Jobs" value={m.monitoring.queuedJobs} />
-          <Metric label="Running" value={m.monitoring.runningJobs} />
-          <Metric label="Success Rate" value={`${(m.metrics.successRate * 100).toFixed(0)}%`} />
+          <Metric label="Success Rate" value={`${(metrics.successRate * 100).toFixed(0)}%`} />
+          <Metric label="Avg Duration" value={`${metrics.averageDurationMs}ms`} />
+          <Metric label="Worker Utilization" value={`${(metrics.workerUtilization * 100).toFixed(0)}%`} />
+          <Metric label="Est. Cost" value={`$${metrics.estimatedCostUsd.toFixed(2)}`} />
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {tabs.slice(1).map((t) => {
           const Icon = t.icon;
           return (
@@ -128,59 +143,185 @@ function Dashboard({ onNavigate }: { onNavigate: (t: TabId) => void }) {
 // ─── Workers ────────────────────────────────────────────────────────────
 
 function WorkersPanel() {
-  const { data, loading, refresh } = useFetch<any>("/api/v1/cloud/workers");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const workers = data?.data ?? [];
+  const { workers, refreshWorkers, toggleWorker, removeWorker } = useCloudStore();
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [type, setType] = React.useState<RuntimeType>("docker");
+
+  const handleAdd = async () => {
+    if (!name.trim()) return;
+    await useCloudStore.getState().addWorker({ name, type, capabilities: ["build", "test"] });
+    setName("");
+    setShowAdd(false);
+    toast.success(`Worker "${name}" added`);
+  };
+
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
-      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Workers ({workers.length})</h3><Button variant="ghost" size="sm" className="h-7 text-xs" onClick={refresh}>Refresh</Button></div>
-      {workers.map((w: any) => (
-        <div key={w.id} className={cn("rounded-lg border p-3", w.status === "idle" ? "border-emerald-500/30 bg-emerald-500/5" : w.status === "busy" ? "border-amber-500/30 bg-amber-500/5" : "border-border/60 bg-card")}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-foreground">{w.name}</span>
-            <Badge variant="outline" className="text-[9px] capitalize">{w.type}</Badge>
-            <Badge variant="outline" className={cn("text-[9px] capitalize", w.status === "idle" ? "text-emerald-600" : w.status === "busy" ? "text-amber-600" : "text-muted-foreground")}>{w.status}</Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
-            <div>CPU: <span className="text-foreground">{w.cpuUsage}%</span></div>
-            <div>Memory: <span className="text-foreground">{w.memoryUsage}MB</span></div>
-            <div>Jobs: <span className="text-foreground">{w.activeJobs}/{w.maxJobs}</span></div>
-            <div>Heartbeat: <span className="text-foreground">{new Date(w.lastHeartbeat).toLocaleTimeString()}</span></div>
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1">{w.capabilities.map((c: string) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}</div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Workers ({workers.length})</h3>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshWorkers()}>
+            <RefreshCw className="mr-1 h-3 w-3" />Refresh
+          </Button>
+          <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => setShowAdd(!showAdd)}>
+            <Plus className="mr-1 h-3 w-3" />Add
+          </Button>
         </div>
+      </div>
+
+      {showAdd && (
+        <Card><CardContent className="p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Worker name" className="flex-1 rounded border border-border bg-card p-2 text-xs" />
+            <Select value={type} onValueChange={(v) => setType(v as RuntimeType)}>
+              <SelectTrigger className="w-full sm:w-32"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="docker">Docker</SelectItem>
+                <SelectItem value="remote">Remote</SelectItem>
+                <SelectItem value="cloud">Cloud</SelectItem>
+                <SelectItem value="ci">CI</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={handleAdd} disabled={!name.trim()}>Add</Button>
+          </div>
+        </CardContent></Card>
+      )}
+
+      {workers.map((w) => (
+        <Card key={w.id}>
+          <CardContent className="p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <Badge variant="outline" className="text-[9px] capitalize">{w.type}</Badge>
+              <span className="text-sm font-medium text-foreground">{w.name}</span>
+              <Badge variant="outline" className={cn("text-[9px] capitalize", statusColor(w.status))}>{w.status}</Badge>
+              <span className="text-[10px] text-muted-foreground">{w.activeJobs}/{w.maxJobs} jobs</span>
+              <div className="ml-auto flex items-center gap-1">
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void toggleWorker(w.id)}>
+                  <Power className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => void removeWorker(w.id)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 text-[10px] text-muted-foreground sm:grid-cols-4">
+              <div>CPU: <span className="text-foreground">{w.cpuUsage.toFixed(0)}%</span></div>
+              <div>Memory: <span className="text-foreground">{w.memoryUsage.toFixed(0)}%</span></div>
+              <div>Address: <span className="text-foreground">{w.address ?? "—"}</span></div>
+              <div>Heartbeat: <span className="text-foreground">{new Date(w.lastHeartbeat).toLocaleTimeString()}</span></div>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {w.capabilities.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
 }
 
-// ─── Jobs ───────────────────────────────────────────────────────────────
+// ─── Job Queue ──────────────────────────────────────────────────────────
 
 function JobsPanel() {
-  const { data, loading, refresh } = useFetch<any>("/api/v1/cloud/jobs");
-  const [submitting, setSubmitting] = React.useState(false);
-  const submit = async () => { setSubmitting(true); try { await fetch("/api/v1/cloud/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "analyze", command: "flutter", args: ["analyze"] }) }); toast.success("Job submitted"); refresh(); } catch { toast.error("Submit failed"); } setSubmitting(false); };
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const queue = data?.data?.queue ?? [];
-  const completed = data?.data?.completed ?? [];
+  const { jobQueue, completedJobs, enqueueJob, cancelJob, refreshJobs } = useCloudStore();
+  const [jobType, setJobType] = React.useState<JobType>("build");
+  const [runtimeType, setRuntimeType] = React.useState<RuntimeType>("local");
+
+  const handleSubmit = async () => {
+    const cmd: Record<JobType, { command: string; args: string[] }> = {
+      build: { command: "flutter", args: ["build", "apk"] },
+      run: { command: "flutter", args: ["run", "-d", "chrome"] },
+      test: { command: "flutter", args: ["test"] },
+      analyze: { command: "flutter", args: ["analyze"] },
+      pub: { command: "flutter", args: ["pub", "get"] },
+      custom: { command: "echo", args: ["hello"] },
+    };
+    const c = cmd[jobType];
+    const job = await enqueueJob({ type: jobType, command: c.command, args: c.args, runtimeType });
+    if (job) toast.success(`Job enqueued: ${job.id}`);
+  };
+
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
-      <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Job Queue ({queue.length})</h3><div className="flex gap-2"><Button variant="ghost" size="sm" className="h-7 text-xs" onClick={refresh}>Refresh</Button><Button size="sm" className="h-7 text-xs" onClick={submit} disabled={submitting}>{submitting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Play className="mr-1 h-3 w-3" />}Submit Job</Button></div></div>
-      {queue.length > 0 && <Card><CardContent className="p-3"><h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Queued + Running</h4>{queue.map((j: any) => <JobRow key={j.id} job={j} />)}</CardContent></Card>}
-      {completed.length > 0 && <Card><CardContent className="p-3"><h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Completed ({completed.length})</h4>{completed.map((j: any) => <JobRow key={j.id} job={j} />)}</CardContent></Card>}
-    </div>
-  );
-}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Job Queue ({jobQueue.length} queued, {completedJobs.length} completed)</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshJobs()}>
+          <RefreshCw className="mr-1 h-3 w-3" />Refresh
+        </Button>
+      </div>
 
-function JobRow({ job }: { job: any }) {
-  const statusColors: Record<string, string> = { success: "text-emerald-600", failed: "text-rose-600", running: "text-sky-600", queued: "text-muted-foreground", cancelled: "text-muted-foreground", timeout: "text-amber-600" };
-  return (
-    <div className="mb-1 flex items-center gap-2 rounded border border-border/60 p-2 text-xs">
-      <Badge variant="outline" className="text-[9px] capitalize">{job.type}</Badge>
-      <Badge variant="outline" className={cn("text-[9px] capitalize", statusColors[job.status])}>{job.status}</Badge>
-      <span className="font-mono text-foreground">{job.command} {job.args.join(" ")}</span>
-      <span className="text-[10px] text-muted-foreground capitalize">{job.runtimeType}</span>
-      {job.durationMs && <span className="ml-auto text-[10px] text-muted-foreground">{job.durationMs}ms</span>}
+      <Card><CardContent className="p-3">
+        <h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Submit Job</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={jobType} onValueChange={(v) => setJobType(v as JobType)}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="build">Build</SelectItem>
+              <SelectItem value="run">Run</SelectItem>
+              <SelectItem value="test">Test</SelectItem>
+              <SelectItem value="analyze">Analyze</SelectItem>
+              <SelectItem value="pub">Pub</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={runtimeType} onValueChange={(v) => setRuntimeType(v as RuntimeType)}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="local">Local</SelectItem>
+              <SelectItem value="docker">Docker</SelectItem>
+              <SelectItem value="remote">Remote</SelectItem>
+              <SelectItem value="cloud">Cloud</SelectItem>
+              <SelectItem value="ci">CI</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={handleSubmit}>
+            <Play className="mr-1 h-3 w-3" />Submit
+          </Button>
+        </div>
+      </CardContent></Card>
+
+      {jobQueue.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">Queue</h4>
+          <div className="space-y-1.5">
+            {jobQueue.map((j) => (
+              <div key={j.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
+                <Badge variant="outline" className={cn("text-[9px] capitalize", statusColor(j.status))}>{j.status}</Badge>
+                <Badge variant="outline" className="text-[9px]">{j.type}</Badge>
+                <span className="font-mono text-foreground">{j.command} {j.args.join(" ")}</span>
+                <Badge variant="outline" className="text-[9px]">{j.runtimeType}</Badge>
+                {j.workerId && <span className="text-[10px] text-muted-foreground">→ {j.workerId}</span>}
+                {j.status === "queued" && (
+                  <Button size="sm" variant="ghost" className="ml-auto h-6 px-2 text-xs" onClick={() => void cancelJob(j.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {completedJobs.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">Completed ({completedJobs.length})</h4>
+          <div className="max-h-96 space-y-1.5 overflow-y-auto ff-scroll">
+            {completedJobs.slice(0, 20).map((j) => (
+              <div key={j.id} className="rounded-md border border-border/60 bg-card p-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={cn("text-[9px] capitalize", statusColor(j.status))}>{j.status}</Badge>
+                  <Badge variant="outline" className="text-[9px]">{j.type}</Badge>
+                  <span className="font-mono text-foreground">{j.command} {j.args.join(" ")}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">{j.durationMs}ms</span>
+                </div>
+                {j.stdout.length > 0 && <pre className="ff-scroll mt-1 max-h-20 overflow-auto rounded bg-muted/30 p-1 text-[10px] font-mono text-muted-foreground whitespace-pre-wrap">{j.stdout.join("\n")}</pre>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -188,24 +329,62 @@ function JobRow({ job }: { job: any }) {
 // ─── Build Farm ─────────────────────────────────────────────────────────
 
 function BuildFarmPanel() {
-  const [building, setBuilding] = React.useState(false);
-  const [target, setTarget] = React.useState("apk");
-  const build = async () => { setBuilding(true); try { await fetch("/api/v1/cloud/build", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target, mode: "debug" }) }); toast.success("Build queued"); } catch { toast.error("Build failed"); } setBuilding(false); };
+  const { builds, queueBuild, refreshBuilds } = useCloudStore();
+  const [target, setTarget] = React.useState<BuildTarget>("apk");
+  const [mode, setMode] = React.useState<BuildMode>("debug");
+
+  const handleBuild = async () => {
+    toast.info(`Queuing ${target}/${mode} build…`);
+    const build = await queueBuild(target, mode);
+    if (build) toast.success(`Build queued: ${build.id}`);
+  };
+
   return (
-    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">Build Farm</h3>
-      <Card><CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <label className="text-xs text-muted-foreground">Target:</label>
-          {["apk", "aab", "web"].map(t => <button key={t} onClick={() => setTarget(t)} className={cn("rounded-md px-2 py-0.5 text-[10px] font-medium", target === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{t}</button>)}
-          <Button size="sm" className="ml-auto h-7 text-xs" onClick={build} disabled={building}>{building ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Package className="mr-1 h-3 w-3" />}Build</Button>
+    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Build Farm ({builds.length})</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshBuilds()}>
+          <RefreshCw className="mr-1 h-3 w-3" />Refresh
+        </Button>
+      </div>
+      <Card><CardContent className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={target} onValueChange={(v) => setTarget(v as BuildTarget)}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="apk">APK</SelectItem>
+              <SelectItem value="aab">AAB</SelectItem>
+              <SelectItem value="web">Web</SelectItem>
+              <SelectItem value="linux">Linux</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={mode} onValueChange={(v) => setMode(v as BuildMode)}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="debug">Debug</SelectItem>
+              <SelectItem value="profile">Profile</SelectItem>
+              <SelectItem value="release">Release</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={handleBuild}>
+            <Package className="mr-1 h-3 w-3" />Build
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Builds are queued and distributed to available workers. Parallel builds supported.</p>
       </CardContent></Card>
-      <Card><CardContent className="p-3"><h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Supported Targets</h4>{[
-        { target: "apk", available: true }, { target: "aab", available: true }, { target: "web", available: true },
-        { target: "linux", available: true }, { target: "windows", available: false }, { target: "macos", available: false },
-      ].map(t => <div key={t.target} className="flex items-center gap-2 text-xs"><span className="font-mono text-foreground">{t.target}</span>{t.available ? <Badge variant="outline" className="text-[9px] text-emerald-600">available</Badge> : <Badge variant="outline" className="text-[9px] text-muted-foreground">unavailable</Badge>}</div>)}</CardContent></Card>
+      {builds.length === 0 ? (
+        <EmptyState icon={Package} title="No builds" description="Click Build to queue a build farm job." />
+      ) : (
+        <div className="space-y-1.5">
+          {builds.map((b) => (
+            <div key={b.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
+              <Badge variant="outline" className={cn("text-[9px] capitalize", statusColor(b.status))}>{b.status}</Badge>
+              <span className="text-foreground">{b.target}/{b.mode}</span>
+              {b.durationMs !== undefined && <span className="text-[10px] text-muted-foreground">{b.durationMs}ms</span>}
+              <span className="ml-auto text-[10px] text-muted-foreground">{new Date(b.enqueuedAt).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -213,21 +392,36 @@ function BuildFarmPanel() {
 // ─── Device Farm ────────────────────────────────────────────────────────
 
 function DeviceFarmPanel() {
-  const { data, loading } = useFetch<any>("/api/v1/cloud/device-farm");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const devices = data?.data ?? [];
+  const { devices, reserveDevice, releaseDevice, refreshDevices } = useCloudStore();
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Device Farm ({devices.length})</h3>
-      {devices.map((d: any) => (
-        <div key={d.id} className={cn("rounded-lg border p-3", d.status === "available" ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/60 bg-card")}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-foreground">{d.name}</span>
-            <Badge variant="outline" className="text-[9px] capitalize">{d.type.replace("-", " ")}</Badge>
-            <Badge variant="outline" className={cn("text-[9px] capitalize", d.status === "available" ? "text-emerald-600" : "text-muted-foreground")}>{d.status}</Badge>
-          </div>
-          <div className="flex flex-wrap gap-1">{d.capabilities.map((c: string) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}</div>
-        </div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Device Farm ({devices.length})</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshDevices()}>
+          <RefreshCw className="mr-1 h-3 w-3" />Refresh
+        </Button>
+      </div>
+      {devices.map((d) => (
+        <Card key={d.id}>
+          <CardContent className="p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <Badge variant="outline" className="text-[9px]">{d.type}</Badge>
+              <span className="text-sm font-medium text-foreground">{d.name}</span>
+              <Badge variant="outline" className={cn("text-[9px] capitalize", statusColor(d.status))}>{d.status}</Badge>
+              {d.reservedBy && <span className="text-[10px] text-muted-foreground">by {d.reservedBy}</span>}
+              <div className="ml-auto">
+                {d.status === "available" ? (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void reserveDevice(d.id)}>Reserve</Button>
+                ) : d.status === "reserved" ? (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void releaseDevice(d.id)}>Release</Button>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {d.capabilities.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -236,22 +430,33 @@ function DeviceFarmPanel() {
 // ─── Artifacts ──────────────────────────────────────────────────────────
 
 function ArtifactsPanel() {
-  const { data, loading } = useFetch<any>("/api/v1/cloud/artifacts");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const artifacts = data?.data ?? [];
-  if (artifacts.length === 0) return <EmptyState icon={FolderArchive} title="No artifacts yet" description="Build artifacts (APK, AAB, coverage, logs) will appear here after builds complete." />;
+  const { artifacts, deleteArtifact, refreshArtifacts } = useCloudStore();
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Artifacts ({artifacts.length})</h3>
-      {artifacts.map((a: any) => (
-        <div key={a.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
-          <Badge variant="outline" className="text-[9px] uppercase shrink-0">{a.type}</Badge>
-          <span className="font-mono text-foreground">{a.name}</span>
-          <span className="text-muted-foreground">{a.sizeMb}MB</span>
-          {a.signed && <Badge variant="outline" className="text-[9px] text-emerald-600">signed</Badge>}
-          <span className="ml-auto text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleTimeString()}</span>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Artifacts ({artifacts.length})</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshArtifacts()}>
+          <RefreshCw className="mr-1 h-3 w-3" />Refresh
+        </Button>
+      </div>
+      {artifacts.length === 0 ? (
+        <EmptyState icon={FolderArchive} title="No artifacts" description="Run a build to produce artifacts." />
+      ) : (
+        <div className="space-y-1.5">
+          {artifacts.map((a) => (
+            <div key={a.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
+              <Badge variant="outline" className="text-[9px] uppercase">{a.type}</Badge>
+              <span className="font-mono text-foreground">{a.name}</span>
+              <span className="text-[10px] text-muted-foreground">{a.sizeMb}MB</span>
+              {a.signed && <Badge variant="outline" className="text-[9px] text-emerald-600">signed</Badge>}
+              <span className="ml-auto text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleTimeString()}</span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => void deleteArtifact(a.id)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -259,28 +464,23 @@ function ArtifactsPanel() {
 // ─── Monitoring ─────────────────────────────────────────────────────────
 
 function MonitoringPanel() {
-  const { data, loading } = useFetch<any>("/api/v1/cloud/metrics");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const s = data?.data?.monitoring;
-  if (!s) return <EmptyState icon={Activity} title="No monitoring data" />;
+  const { monitoring, refreshMetrics } = useCloudStore();
+  React.useEffect(() => { void refreshMetrics(); }, [refreshMetrics]);
+  if (!monitoring) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   return (
-    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
+    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
       <h3 className="text-sm font-semibold text-foreground">Monitoring</h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Total Workers" value={s.totalWorkers} />
-        <Metric label="Active Workers" value={s.activeWorkers} />
-        <Metric label="Queued Jobs" value={s.queuedJobs} />
-        <Metric label="Running Jobs" value={s.runningJobs} />
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Completed" value={s.completedJobs} />
-        <Metric label="Failed" value={s.failedJobs} className={s.failedJobs > 0 ? "border-rose-500/30" : ""} />
-        <Metric label="Avg CPU" value={`${s.averageCpu}%`} />
-        <Metric label="Avg Memory" value={`${s.averageMemory}MB`} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Metric label="Success Rate" value={`${(s.successRate * 100).toFixed(0)}%`} className={s.successRate > 0.8 ? "border-emerald-500/30" : "border-amber-500/30"} />
-        <Metric label="Avg Duration" value={`${s.averageDurationMs}ms`} />
+        <Metric label="Total Workers" value={monitoring.totalWorkers} />
+        <Metric label="Active Workers" value={monitoring.activeWorkers} />
+        <Metric label="Queued Jobs" value={monitoring.queuedJobs} />
+        <Metric label="Running Jobs" value={monitoring.runningJobs} />
+        <Metric label="Completed" value={monitoring.completedJobs} />
+        <Metric label="Failed" value={<span className={monitoring.failedJobs > 0 ? "text-rose-600" : ""}>{monitoring.failedJobs}</span>} />
+        <Metric label="Avg CPU" value={`${monitoring.averageCpu}%`} />
+        <Metric label="Avg Memory" value={`${monitoring.averageMemory}%`} />
+        <Metric label="Success Rate" value={`${(monitoring.successRate * 100).toFixed(0)}%`} />
+        <Metric label="Avg Duration" value={`${monitoring.averageDurationMs}ms`} />
       </div>
     </div>
   );
@@ -289,46 +489,92 @@ function MonitoringPanel() {
 // ─── Logs ───────────────────────────────────────────────────────────────
 
 function LogsPanel() {
-  const { data, loading } = useFetch<any>("/api/v1/cloud/jobs");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const jobs = [...(data?.data?.queue ?? []), ...(data?.data?.completed ?? [])];
+  const { logs, clearLogs, refreshLogs } = useCloudStore();
+  const colors: Record<string, string> = { info: "text-sky-600", warning: "text-amber-600", error: "text-rose-600" };
   return (
-    <div className="ff-scroll h-full overflow-y-auto p-2 font-mono text-[11px]">
-      {jobs.flatMap((j: any) => j.stdout.map((line: string, i: number) => (
-        <div key={`${j.id}-${i}`} className="flex items-start gap-2 py-0.5 hover:bg-muted/30">
-          <span className="shrink-0 text-muted-foreground">[{j.runtimeType}]</span>
-          <span className="shrink-0 text-sky-600">{j.type}</span>
-          <span className="text-foreground">{line}</span>
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center justify-between border-b border-border p-2">
+        <span className="text-xs text-muted-foreground">{logs.length} logs</span>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void refreshLogs()}>
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void clearLogs()}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
-      )))}
-      {jobs.length === 0 && <EmptyState icon={Terminal} title="No logs yet" />}
+      </div>
+      <div className="ff-scroll min-h-0 flex-1 overflow-y-auto p-2 font-mono text-[11px]">
+        {logs.length === 0 ? (
+          <p className="p-4 text-xs text-muted-foreground">No logs yet.</p>
+        ) : (
+          logs.map((l) => (
+            <div key={l.id} className="flex items-start gap-2 py-0.5 hover:bg-muted/30">
+              <span className="shrink-0 text-muted-foreground">{new Date(l.timestamp).toLocaleTimeString()}</span>
+              <span className={cn("shrink-0 uppercase font-medium", colors[l.level])}>{l.level}</span>
+              <span className="text-foreground">{l.message}</span>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Runtime Adapters ───────────────────────────────────────────────────
+// ─── Adapters ───────────────────────────────────────────────────────────
 
 function AdaptersPanel() {
-  const adapters = [
-    { type: "local", name: "Local Runtime", available: true, capabilities: ["build", "run", "test", "analyze", "pub"] },
-    { type: "docker", name: "Docker Runtime", available: true, capabilities: ["build", "test", "analyze", "pub"] },
-    { type: "remote", name: "Remote Runtime", available: false, capabilities: ["build", "run", "test", "analyze"] },
-    { type: "cloud", name: "Cloud Runtime", available: false, capabilities: ["build", "test"] },
-    { type: "ci", name: "CI Runtime", available: false, capabilities: ["build", "test", "analyze"] },
-  ];
+  const { adapters, refreshAdapters } = useCloudStore();
+  React.useEffect(() => { void refreshAdapters(); }, [refreshAdapters]);
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Runtime Adapters</h3>
-      <p className="text-xs text-muted-foreground">Every runtime implements the same interface. Jobs can execute on any available adapter.</p>
+      <h3 className="text-sm font-semibold text-foreground">Runtime Adapters ({adapters.length})</h3>
       {adapters.map((a) => (
-        <div key={a.type} className={cn("rounded-lg border p-3", a.available ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/60 bg-card")}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-foreground">{a.name}</span>
-            {a.available ? <Badge variant="outline" className="text-[9px] text-emerald-600">available</Badge> : <Badge variant="outline" className="text-[9px] text-muted-foreground">unavailable</Badge>}
-          </div>
-          <div className="flex flex-wrap gap-1">{a.capabilities.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}</div>
-        </div>
+        <Card key={a.type}>
+          <CardContent className="p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <Badge variant="outline" className="text-[9px] capitalize">{a.type}</Badge>
+              <span className="text-sm font-medium text-foreground">{a.name}</span>
+              {a.available ? (
+                <Badge variant="outline" className="text-[9px] text-emerald-600">available</Badge>
+              ) : (
+                <Badge variant="outline" className="text-[9px] text-muted-foreground">unavailable</Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {a.capabilities.map((c) => <Badge key={c} variant="outline" className="text-[9px]">{c}</Badge>)}
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">{JSON.stringify(a.config)}</div>
+          </CardContent>
+        </Card>
       ))}
+    </div>
+  );
+}
+
+// ─── History ────────────────────────────────────────────────────────────
+
+function HistoryPanel() {
+  const { history, refreshHistory } = useCloudStore();
+  React.useEffect(() => { void refreshHistory(); }, [refreshHistory]);
+  return (
+    <div className="ff-scroll h-full overflow-y-auto p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-foreground">History ({history.length})</h3>
+      {history.length === 0 ? (
+        <EmptyState icon={History} title="No history" description="Submit jobs to see history." />
+      ) : (
+        <div className="space-y-1.5">
+          {history.map((h) => (
+            <div key={h.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card p-2 text-xs">
+              <Badge variant="outline" className="text-[9px]">{h.type}</Badge>
+              <Badge variant="outline" className="text-[9px]">{h.runtimeType}</Badge>
+              {h.success ? <span className="text-emerald-600">✓</span> : <span className="text-rose-600">✗</span>}
+              {h.workerName && <span className="text-muted-foreground">{h.workerName}</span>}
+              <span className="ml-auto text-[10px] text-muted-foreground">{h.durationMs}ms · {new Date(h.timestamp).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -336,25 +582,53 @@ function AdaptersPanel() {
 // ─── Metrics ────────────────────────────────────────────────────────────
 
 function MetricsPanel() {
-  const { data, loading } = useFetch<any>("/api/v1/cloud/metrics");
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  const m = data?.data?.metrics;
-  if (!m) return <EmptyState icon={BarChart3} title="No metrics" />;
+  const { metrics, refreshMetrics } = useCloudStore();
+  React.useEffect(() => { void refreshMetrics(); }, [refreshMetrics]);
+  if (!metrics) return <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   return (
     <div className="ff-scroll h-full overflow-y-auto p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">Cloud Metrics</h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Total Jobs" value={m.totalJobs} />
-        <Metric label="Total Builds" value={m.totalBuilds} />
-        <Metric label="Success Rate" value={`${(m.successRate * 100).toFixed(0)}%`} />
-        <Metric label="Avg Duration" value={`${m.averageDurationMs}ms`} />
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Cloud Metrics</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void refreshMetrics()}>
+          <RefreshCw className="mr-1 h-3 w-3" />Refresh
+        </Button>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Worker Utilization" value={`${(m.workerUtilization * 100).toFixed(0)}%`} />
-        <Metric label="Artifacts" value={m.totalArtifacts} />
-        <Metric label="Cache Hit Rate" value={`${(m.cacheHitRate * 100).toFixed(0)}%`} />
-        <Metric label="Est. Cost" value={`$${m.estimatedCostUsd}`} />
+        <Metric label="Total Jobs" value={metrics.totalJobs} />
+        <Metric label="Total Builds" value={metrics.totalBuilds} />
+        <Metric label="Success Rate" value={`${(metrics.successRate * 100).toFixed(0)}%`} />
+        <Metric label="Avg Duration" value={`${metrics.averageDurationMs}ms`} />
+        <Metric label="Worker Utilization" value={`${(metrics.workerUtilization * 100).toFixed(0)}%`} />
+        <Metric label="Artifacts" value={metrics.totalArtifacts} />
+        <Metric label="Cache Hit Rate" value={`${(metrics.cacheHitRate * 100).toFixed(0)}%`} />
+        <Metric label="Est. Cost" value={`$${metrics.estimatedCostUsd.toFixed(2)}`} />
       </div>
+      {metrics.jobsByType.length > 0 && (
+        <Card><CardContent className="p-3">
+          <h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Jobs by Type</h4>
+          <div className="space-y-1">
+            {metrics.jobsByType.map((j) => (
+              <div key={j.type} className="flex items-center gap-2 text-xs">
+                <span className="flex-1 capitalize text-foreground">{j.type}</span>
+                <span className="text-[10px] text-muted-foreground">{j.count}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
+      {metrics.jobsByRuntime.length > 0 && (
+        <Card><CardContent className="p-3">
+          <h4 className="mb-2 text-[10px] font-semibold uppercase text-muted-foreground">Jobs by Runtime</h4>
+          <div className="space-y-1">
+            {metrics.jobsByRuntime.map((j) => (
+              <div key={j.runtime} className="flex items-center gap-2 text-xs">
+                <span className="flex-1 capitalize text-foreground">{j.runtime}</span>
+                <span className="text-[10px] text-muted-foreground">{j.count}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
     </div>
   );
 }
