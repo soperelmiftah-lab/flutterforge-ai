@@ -15,14 +15,39 @@ This guide walks you through setting up Supabase for FlutterForge AI.
 
 ## Step 2: Get Your Database Connection String
 
-1. Go to **Project Settings** → **Database**
-2. Scroll to **Connection string**
-3. Copy the **URI** format:
-   ```
-   postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
-   ```
-4. Replace `[password]` with your database password
-5. Set this as your `DATABASE_URL` in `.env`
+Supabase offers 3 connection methods. **Choose based on your use case:**
+
+### For Development (local `bun run dev`): Session Pooler
+- Go to **Connect** → **Session pooler** tab
+- Port: `5432`
+- Supports DDL operations (needed for `prisma db push`)
+- Uses IPv4 (works everywhere)
+
+### For Production (Vercel serverless): Transaction Pooler
+- Go to **Connect** → **Transaction pooler** tab
+- Port: `6543`
+- Optimized for serverless (brief, isolated connections)
+- Uses IPv4 (works with Vercel)
+
+### Connection String Format
+
+```
+# Session pooler (dev — for prisma db push + runtime)
+postgresql://postgres.[project-ref]:[URL-encoded-password]@aws-0-[region].pooler.supabase.com:5432/postgres
+
+# Transaction pooler (prod — for Vercel)
+postgresql://postgres.[project-ref]:[URL-encoded-password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+```
+
+### URL-Encoding the Password
+
+If your password contains special characters (`@`, `#`, `?`, `/`, etc.), URL-encode them:
+- `@` → `%40`
+- `#` → `%23`
+- `?` → `%3F`
+- `/` → `%2F`
+
+Example: password `Pass@word` → `Pass%40word`
 
 ## Step 3: Configure GitHub OAuth
 
