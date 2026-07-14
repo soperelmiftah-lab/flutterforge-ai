@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateRecommendations } from "@/features/tool-intelligence/recommendations";
-import { chainStore } from "../analyze/route";
+import { getChain, listChains } from "@/features/tool-intelligence/state";
 
 /**
  * GET /api/v1/tools/recommendations
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const chainId = url.searchParams.get("chainId");
 
   if (chainId) {
-    const chain = chainStore.get(chainId);
+    const chain = getChain(chainId);
     if (!chain) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Chain not found" } },
@@ -24,6 +24,6 @@ export async function GET(req: Request) {
   }
 
   // Recommendations for all chains.
-  const allRecs = Array.from(chainStore.values()).flatMap((chain) => generateRecommendations(chain));
+  const allRecs = listChains().flatMap((chain) => generateRecommendations(chain));
   return NextResponse.json({ data: allRecs, total: allRecs.length });
 }
