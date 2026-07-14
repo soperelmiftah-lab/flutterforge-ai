@@ -1,23 +1,45 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 /**
- * FlutterForge AI — Security Middleware
+ * FlutterForge AI — Security + Auth Middleware
  *
  * Applies to every request:
- *   1. Security headers (CSP, HSTS, X-Frame-Options, etc.)
- *   2. CORS for API routes
- *   3. Basic rate limiting (in-memory, per-IP)
- *   4. Request logging
+ *   1. Auth check — protect /app routes (redirect to /login if not authenticated)
+ *   2. Security headers (CSP, HSTS, X-Frame-Options, etc.)
+ *   3. CORS for API routes
+ *   4. Rate limiting (in-memory, per-IP)
  *
  * Rate limiting is in-memory and per-server-instance. For multi-instance
  * production deployments, replace with Redis-backed rate limiting.
  */
 
+// ─── Protected routes (require authentication) ────────────────────────────
+
+const PROTECTED_PREFIXES = [
+  "/dashboard", "/workspace", "/planner", "/tool-intelligence",
+  "/flutter-platform", "/runtime", "/visual", "/vision-ai",
+  "/autonomous", "/cloud", "/ai-settings", "/chat",
+  "/execution", "/history", "/inspector", "/projects",
+  "/settings", "/templates",
+];
+
+// API routes that require auth (everything except /api/auth and /api/v1/health)
+function isProtectedApiPath(pathname: string): boolean {
+  if (pathname.startsWith("/api/auth/")) return false;
+  if (pathname === "/api/v1/health") return false;
+  return pathname.startsWith("/api/");
+}
+
+function isProtectedPagePath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 // ─── Rate Limiter (in-memory) ────────────────────────────────────────────
 
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute per IP
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 100;
 
 interface RateLimitEntry {
   count: number;
@@ -25,8 +47,6 @@ interface RateLimitEntry {
 }
 
 const rateLimitMap = new Map<string, RateLimitEntry>();
-
-// Clean up expired entries every 5 minutes to prevent memory leaks.
 const CLEANUP_INTERVAL_MS = 5 * 60_000;
 let lastCleanup = Date.now();
 
@@ -57,8 +77,6 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number; rese
   };
 }
 
-// ─── Helper: get client IP ───────────────────────────────────────────────
-
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
@@ -69,20 +87,38 @@ function getClientIP(request: NextRequest): string {
 
 // ─── Middleware ──────────────────────────────────────────────────────────
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = getClientIP(request);
 
-  // 1. Rate limiting (skip for static assets).
+  // 1. Auth check — protected pages redirect to /login
+  if (isProtectedPagePath(pathname)) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // 2. Auth check — protected API routes return 401
+  if (isProtectedApiPath(pathname)) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) {
+      return new NextResponse(
+        JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Authentication required" } }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  // 3. Rate limiting (skip for static assets).
   if (!pathname.startsWith("/_next/") && !pathname.startsWith("/favicon")) {
     const rateLimit = checkRateLimit(ip);
     if (!rateLimit.allowed) {
       return new NextResponse(
         JSON.stringify({
-          error: {
-            code: "RATE_LIMITED",
-            message: "Too many requests. Please try again later.",
-          },
+          error: { code: "RATE_LIMITED", message: "Too many requests. Please try again later." },
         }),
         {
           status: 429,
@@ -98,7 +134,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 2. CORS for API routes.
+  // 4. CORS for API routes.
   const isApiRoute = pathname.startsWith("/api/");
   const origin = request.headers.get("origin");
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") ?? ["*"];
@@ -106,31 +142,23 @@ export function middleware(request: NextRequest) {
     ? origin
     : allowedOrigins[0];
 
-  // 3. Handle preflight (OPTIONS) requests for API routes.
+  // 5. Handle preflight (OPTIONS) requests for API routes.
   if (isApiRoute && request.method === "OPTIONS") {
     const response = new NextResponse(null, { status: 204 });
     response.headers.set("Access-Control-Allow-Origin", corsOrigin ?? "*");
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Request-ID"
-    );
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID");
     response.headers.set("Access-Control-Max-Age", "86400");
     return response;
   }
 
-  // 4. Process the request.
+  // 6. Process the request.
   const response = NextResponse.next();
 
-  // 5. Security headers (supplement what's in next.config.ts headers()).
   if (isApiRoute) {
     response.headers.set("Access-Control-Allow-Origin", corsOrigin ?? "*");
     response.headers.set("Access-Control-Allow-Credentials", "true");
-  }
-
-  // 6. Rate limit info headers for API routes.
-  if (isApiRoute) {
-    const rateLimit = checkRateLimit(ip); // Already incremented above, this gets fresh
+    const rateLimit = checkRateLimit(ip);
     response.headers.set("X-RateLimit-Limit", String(RATE_LIMIT_MAX_REQUESTS));
     response.headers.set("X-RateLimit-Remaining", String(Math.max(0, rateLimit.remaining - 1)));
   }
@@ -140,7 +168,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except static assets and Next.js internals.
     "/((?!_next/static|_next/image|favicon.ico|favicon.svg|.*\\.png$|.*\\.svg$|.*\\.jpg$).*)",
   ],
 };

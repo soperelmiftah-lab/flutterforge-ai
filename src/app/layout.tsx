@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from "@/components/providers";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
 
 const geistSans = Geist({
@@ -51,7 +52,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <AppProviders>{children}</AppProviders>
+        <AuthProvider>
+          <AppProviders>{children}</AppProviders>
+        </AuthProvider>
         <SonnerToaster richColors closeButton position="bottom-right" />
         <Toaster />
       </body>
