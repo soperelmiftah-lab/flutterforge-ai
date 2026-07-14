@@ -13,6 +13,7 @@ import {
   Wand2,
   Eye,
   ScanEye,
+  Cloud,
   type LucideIcon,
 } from "lucide-react";
 
@@ -82,6 +83,12 @@ export const appNavItems: NavItem[] = [
     href: "/autonomous",
     icon: Bot,
     description: "Autonomous engineering & repair pipeline",
+  },
+  {
+    title: "Cloud",
+    href: "/cloud",
+    icon: Cloud,
+    description: "Distributed execution, workers & device farm",
   },
   {
     title: "AI Chat",
