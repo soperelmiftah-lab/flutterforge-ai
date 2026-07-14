@@ -224,3 +224,48 @@ Stage Summary:
   - Frame stats → 60 fps, 0 jank
   - Metrics → screenshots: 1, streams: 1, connections: 1
   - UI: 13 tabs all functional, Device Preview shows real SVG screenshot, Frame Monitor shows FPS history bar chart, Vision Context shows full structured JSON, Events tab has simulate buttons that actually record events.
+
+---
+Task ID: 5
+Agent: main
+Task: Phase 10 (Vision AI) — make it "working" status (real heuristic analysis + AI-enhanced summary + state persistence).
+
+Work Log:
+- Created `src/features/vision-ai/state/index.ts` — shared in-memory Vision AI state (persists via globalThis). Holds reports (100 max), history (200 max), sessions (50 max). Contains the full analysis pipeline: understandScreen, analyzeLayout, analyzeWidgets, analyzeDesign, analyzeAccessibility, analyzePerformance, analyzeResponsive, collectIssues, generateRecommendations, computeConfidence. All analysis functions are data-driven (use real VisionInput signals rather than hardcoded values).
+- Created `src/features/vision-ai/ai-analysis.ts` — AI-driven report enhancement using the Forge chat engine. Sends the heuristic analysis results to the LLM and gets back: (1) a richer executive summary that prioritises the most impactful issues, (2) one additional high-priority recommendation not already in the list. Falls back to the heuristic summary if AI unavailable.
+- Updated `src/features/vision-ai/index.ts` to export the new state + AI modules.
+- Updated 5 API routes to use shared state:
+  - POST /vision/analyze — pulls real data from Visual Runtime state (screenshots, widget tree, render tree, layout report, console errors, frame stats), runs heuristic analysis, enhances with AI
+  - GET /vision/reports — returns all reports
+  - GET /vision/history — returns history
+  - GET /vision/metrics — returns aggregated metrics computed from real reports
+  - POST /vision/compare — compares two reports by id
+- Added 1 new API route: GET /vision/sessions
+- Created `src/stores/vision-ai-store.ts` — Zustand store with full state + actions (hydrate, runAnalysis, refreshHistory, refreshMetrics, refreshSessions, compare)
+- Updated UI (`src/app/(app)/vision-ai/page.tsx`) with 10 tabs all backed by real state:
+  - Dashboard: overall score, issues count, confidence, AI-generated executive summary, 6 dimension scores with progress bars, aggregated metrics
+  - Screen Analysis: screen type, current page, confidence, detected elements grid
+  - Layout Analysis: score, total widgets, issue count, findings with severity/type/widget/suggestion
+  - Design Review: Material 3 / Typography / Color / Spacing scores, findings
+  - Accessibility: score, WCAG level, findings
+  - Performance: FPS, jank, memory, frame time, findings
+  - Recommendations: priority/category/impact badges, descriptions, actions
+  - Comparison: select 2 reports, compare visual similarity + layout/widget/theme differences
+  - History: all analysis entries with scores + issue counts + confidence
+  - Metrics: total analyses, total issues, avg score, avg confidence, common issue categories bar chart, common recommendations
+
+Stage Summary:
+- Phase 10 (Vision AI) is now "Working" — no longer mock.
+- 1 new state module + 1 AI module + 1 new API route + 1 new store + complete UI overhaul.
+- The analysis pipeline pulls REAL data from the Visual Runtime state (Phase 9) — screenshots, widget trees, render trees, layout reports, console errors, frame stats.
+- The AI Chat Engine (Forge / z-ai-web-dev-sdk) enhances the executive summary with a richer, prioritised narrative + adds an extra recommendation.
+- State persists across API calls via globalThis.
+- Verified end-to-end with curl + Agent Browser:
+  - POST /vision/analyze → AI-enhanced executive summary: "The HomeScreen has significant layout issues including overflow and alignment problems that impact user experience, along with accessibility concerns that need immediate attention to meet WCAG AA standards."
+  - 7 issues detected across layout/design/accessibility/performance
+  - 4 recommendations (3 heuristic + 1 AI-generated)
+  - 6 dimension scores: Layout 40, Widget 88, Design 91, Accessibility 70, Performance 60, Responsive
+  - Metrics: 3 analyses, 21 total issues, avg score 72, avg confidence 100%, common issues: Layout 11, Accessibility 4, Design 3, Widget 2, Performance 1
+  - Comparison: 81% similarity between two reports, layout differences detected
+  - History: 3 entries with real scores + issue counts
+  - Sessions: 3 sessions, all completed

@@ -47,3 +47,6 @@ export * from "./history";
 export * from "./metrics";
 export * from "./knowledge";
 export * from "./policies";
+// Phase 10 — shared in-memory state + AI enhancement.
+export * from "./state";
+export { enhanceWithAI } from "./ai-analysis";

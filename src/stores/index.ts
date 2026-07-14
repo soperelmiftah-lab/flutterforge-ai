@@ -41,3 +41,5 @@ export { useFlutterPlatformStore } from "./flutter-platform-store";
 export { useRuntimeStore } from "./runtime-store";
 // Phase 9 — Visual Runtime store
 export { useVisualRuntimeStore } from "./visual-runtime-store";
+// Phase 10 — Vision AI store
+export { useVisionAIStore } from "./vision-ai-store";
