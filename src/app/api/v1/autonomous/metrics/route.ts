@@ -1,3 +1,11 @@
 import { NextResponse } from "next/server";
-import { computeMetrics } from "@/features/autonomous/metrics";
-export async function GET() { return NextResponse.json({ data: computeMetrics() }); }
+import { autonomousState } from "@/features/autonomous/state";
+
+/**
+ * GET /api/v1/autonomous/metrics
+ *
+ * Returns aggregated autonomous engineering metrics computed from real history.
+ */
+export async function GET() {
+  return NextResponse.json({ data: autonomousState.computeMetrics() });
+}

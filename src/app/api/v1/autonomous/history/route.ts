@@ -1,3 +1,11 @@
 import { NextResponse } from "next/server";
-import { getHistory } from "@/features/autonomous/history";
-export async function GET() { return NextResponse.json({ data: getHistory(20) }); }
+import { autonomousState } from "@/features/autonomous/state";
+
+/**
+ * GET /api/v1/autonomous/history
+ *
+ * Returns autonomous engineering history (newest first).
+ */
+export async function GET() {
+  return NextResponse.json({ data: autonomousState.listHistory(20) });
+}
