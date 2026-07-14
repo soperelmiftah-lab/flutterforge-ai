@@ -81,7 +81,7 @@ export function findBlocked(tasks: Task[]): Task[] {
 /** Find tasks that are ready to run (all deps completed). */
 export function findReady(tasks: Task[]): Task[] {
   return tasks.filter(
-    (t) => t.status === "pending" && t.dependsOn.every((depId) => {
+    (t) => (t.status === "pending" || t.status === "ready") && t.dependsOn.every((depId) => {
       const dep = tasks.find((d) => d.id === depId);
       return dep && dep.status === "completed";
     })

@@ -3,13 +3,24 @@
  *
  * Session Manager — each planning conversation has its own session that
  * persists the goal, plan, timeline, and thinking steps.
+ * Uses globalThis to persist across hot reloads in dev mode.
  */
 
 import type { PlanningSession, Intent, Goal, Plan, Evaluation, ThinkingStep } from "../types";
 import { getTimeline } from "../timeline";
 import { uid } from "@/lib/utils";
 
-const sessions = new Map<string, PlanningSession>();
+// Use globalThis to persist sessions across hot reloads / module re-instantiation
+const globalForPlanner = globalThis as unknown as {
+  __plannerSessions: Map<string, PlanningSession> | undefined;
+};
+
+const sessions: Map<string, PlanningSession> =
+  globalForPlanner.__plannerSessions ?? new Map<string, PlanningSession>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPlanner.__plannerSessions = sessions;
+}
 
 /** Create a new planning session. */
 export function createSession(intent: Intent, goal: Goal, thinkingSteps: ThinkingStep[]): PlanningSession {

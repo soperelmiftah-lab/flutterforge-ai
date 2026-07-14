@@ -56,7 +56,8 @@ export const usePlannerStore = create<PlannerState>((set, get) => ({
     if (!plan) return;
     set({ loading: true, error: null });
     try {
-      const response = await api.post<{ data: Plan }>("/planner/execute", { planId: plan.id });
+      // Send the plan object directly in the body (more reliable than planId lookup)
+      const response = await api.post<{ data: Plan; evaluation: any }>("/planner/execute", { plan });
       set({ plan: response.data, loading: false });
     } catch (e: unknown) {
       set({ loading: false, error: e instanceof Error ? e.message : "Execution failed" });
