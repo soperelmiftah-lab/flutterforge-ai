@@ -56,3 +56,58 @@ Stage Summary:
 - The Learning Store now records real success/failure data per tool execution.
 - All API endpoints verified working (200 OK).
 - UI verified with Agent Browser — 9 tabs functional, AI Analysis panel shows real AI rationale, Execute button runs chains, Learning tab shows real reliability stats.
+
+---
+Task ID: 2
+Agent: main
+Task: Phase 7 (Flutter Platform) — make it "working" status (real AI + real execution).
+
+Work Log:
+- Created AI-driven Dart code generator (`src/features/flutter-platform/generator/index.ts`) — uses Forge chat engine to produce real Dart code for screens/widgets/models/services. Falls back to a minimal template if AI unavailable.
+- Created real templates library (`src/features/flutter-platform/templates/index.ts`) — 5 complete templates with real Dart code (Counter App, Login Screen, Todo App, Master-Detail, Settings Screen). Each template defines its file set + metadata.
+- Created real packages catalog (`src/features/flutter-platform/dependencies/index.ts`) — 25 popular Flutter packages across 7 categories (state, network, routing, storage, ui, testing, tooling, other).
+- Created AI code review (`src/features/flutter-platform/review/index.ts`) — sends Dart code to chat engine, returns structured findings + 0–100 scores across 4 dimensions (architecture/performance/a11y/maintainability). Static fallback if AI unavailable.
+- Created AI repair detector (`src/features/flutter-platform/repair/index.ts`) — detects 8 issue types (broken-widget, memory-leak, async-misuse, setstate-misuse, disposed-controller, etc.) with auto-fix recommendations. Static fallback.
+- Created AI performance analyzer (`src/features/flutter-platform/performance/index.ts`) — returns rebuild/const-usage/memory scores + concrete issues + suggestions.
+- Created AI project analyzer (`src/features/flutter-platform/analysis/index.ts`) — detects state management, routing, package count, issues, recommendations.
+- Created real build readiness checker (`src/features/flutter-platform/build/index.ts`) — runs 7 static checks against the VFS (pubspec.yaml, lib/main.dart, main() function, runApp() call, SDK pin, etc.).
+- Updated all API routes:
+  - POST /flutter/generate — AI generator
+  - GET /flutter/templates — real templates with files
+  - GET /flutter/packages — 25 real packages
+  - POST /flutter/review — AI review
+  - POST /flutter/repair — AI repair
+  - POST /flutter/analyze — AI analysis
+  - POST /flutter/performance — AI performance
+  - POST /flutter/widget-tree — real tree builder + Dart code generation
+  - POST /flutter/scaffold — writes template files to VFS via Execution Engine (smart create_file vs write_file)
+  - POST /flutter/save — saves generated code to VFS via Execution Engine
+  - GET /flutter/build — real build readiness checks
+  - GET /flutter/agents — returns real agents from planner registry
+- Created `src/stores/flutter-platform-store.ts` — Zustand store for generator state, review/repair/performance/analysis results, templates, build readiness, save-to-VFS.
+- Updated UI (`src/app/(app)/flutter-platform/page.tsx`) with:
+  - NEW Generator tab — describe what you need, AI generates Dart code, copy-to-clipboard, save-to-workspace
+  - Updated Templates tab — 5 real templates with Preview + Scaffold buttons
+  - Updated Performance tab — paste code, AI returns scores + issues + suggestions
+  - Updated Review tab — paste code, AI returns 4 scores + findings with severity/category/line
+  - Updated Repair tab — paste code, AI returns bug findings with fix recommendations
+  - Updated Build Readiness tab — 7 real VFS checks with pass/warning/fail status
+  - Updated Widget Tree tab — real builder + Dart code generation
+  - Updated Dashboard — shows real metrics (templates count, packages count)
+- Fixed "use server" export error — removed placeholder const exports from review/repair/analysis modules (they can only export async functions in Next.js server-action files).
+- Fixed build readiness path mismatch — was querying "./pubspec.yaml" but VFS stores "pubspec.yaml".
+
+Stage Summary:
+- Phase 7 (Flutter Platform) is now "Working" — no longer mock.
+- 6 new feature modules + 4 new API routes + 1 new store + UI overhaul.
+- The AI Chat Engine (Forge / z-ai-web-dev-sdk) now drives: code generation, code review, repair detection, performance analysis, project analysis.
+- The Execution Engine is now invoked for: scaffolding templates (smart create vs write), saving generated code to VFS.
+- Verified end-to-end with curl + Agent Browser:
+  - POST /flutter/generate → AI-generated 116-line LoginEmailPasswordScreen with real Dart code
+  - POST /flutter/scaffold → "Counter App" template scaffolded to lib/main.dart via Execution Engine
+  - POST /flutter/review → AI returned 4 findings with scores (Overall: 65/100, A11y: 40/100, etc.)
+  - POST /flutter/repair → AI detected undisposed controller + unnecessary setState
+  - GET /flutter/build → 7/7 checks pass, score 100/100
+  - GET /flutter/templates → 5 templates with real Dart code
+  - GET /flutter/packages → 25 popular Flutter packages
+  - UI: Generator tab shows AI-generated code with copy + save buttons; Templates tab shows 5 templates with Scaffold; Review tab shows 4 AI findings with scores; Build Readiness shows 7/7 pass.
