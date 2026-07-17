@@ -6,6 +6,7 @@ import { AppProviders } from "@/components/providers";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +58,7 @@ export default function RootLayout({
         </AuthProvider>
         <SonnerToaster richColors closeButton position="bottom-right" />
         <Toaster />
+        <SpeedInsights />
       </body>
     </html>
   );
